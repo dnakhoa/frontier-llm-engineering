@@ -880,6 +880,66 @@ URL: https://arxiv.org/abs/2307.13854
 
 ---
 
+### 83. FlashAttention-2
+
+**Dao, T.** "FlashAttention-2: Faster Attention with Better Parallelism and Work Partitioning." July 2023. arXiv:2307.08691.
+
+Improves the original by reducing non-matmul FLOPs, parallelizing over the sequence-length dimension, and partitioning work better between warps within a thread block. Roughly doubles throughput over FlashAttention-1 on the same hardware, with no change to the algorithm's semantics.
+
+URL: https://arxiv.org/abs/2307.08691
+
+---
+
+### 84. FlashAttention-3
+
+**Shah et al.** "FlashAttention-3: Fast and Accurate Attention with Asynchrony and Low-precision." July 2024. arXiv:2407.08608.
+
+Targets Hopper specifically: asynchronous tensor-core execution, the Tensor Memory Accelerator for overlapping data movement with computation, and FP8 support. The clearest demonstration that kernels are hardware-specific and age with each GPU generation.
+
+URL: https://arxiv.org/abs/2407.08608
+
+---
+
+### 85. Triton
+
+**Tillet, Kung, Cox.** "Triton: An Intermediate Language and Compiler for Tiled Neural Network Computations." MAPL 2019.
+
+Raises kernel programming from threads to tiles: you write code operating on blocks, and the compiler handles intra-block parallelism, memory coalescing, and much of the scheduling. Typically 80-95% of hand-written CUDA performance for a fraction of the effort, in Python. Now the default for fusion work outside the hottest loops.
+
+URL: https://github.com/triton-lang/triton
+
+---
+
+### 86. Making Deep Learning Go Brrrr
+
+**He, Horace.** "Making Deep Learning Go Brrrr From First Principles." 2022.
+
+The clearest short treatment of the compute-bound / memory-bound / overhead-bound framing, and of why arithmetic intensity is the number that decides which optimization will help. Assumed background for Chapter 20.
+
+URL: https://horace.io/brrr_intro.html
+
+---
+
+### 87. PyTorch Distributed Checkpoint
+
+**PyTorch.** `torch.distributed.checkpoint` documentation and design notes.
+
+The sharded checkpoint API: every rank writes only the shard it owns, in parallel, and the checkpoint records each tensor's logical structure rather than the physical layout one rank happened to hold. That is what makes resharding possible -- saving on 512 ranks and loading on 256, or changing tensor-parallel degree between training and serving.
+
+URL: https://docs.pytorch.org/docs/stable/distributed.checkpoint.html
+
+---
+
+### 88. Young/Daly optimal checkpoint interval
+
+**Daly, J. T.** "A higher order estimate of the optimum checkpoint interval for restart dumps." *Future Generation Computer Systems* 22(3), 2006, pp. 303-312. Refines Young (1974).
+
+Gives the optimal checkpoint interval as approximately sqrt(2 * C * MTBF), where C is the cost of writing one checkpoint. Predates LLM training by decades and comes from the HPC community, where the same arithmetic governed multi-week simulation runs on unreliable clusters.
+
+URL: https://doi.org/10.1016/j.future.2004.11.016
+
+---
+
 ## Notes on the references
 
 - The frontier moves fast. Many of these are 2023–2025; expect newer versions.
