@@ -940,6 +940,86 @@ URL: https://doi.org/10.1016/j.future.2004.11.016
 
 ---
 
+### 89. Speculative decoding
+
+**Leviathan, Kalman, Matias.** "Fast Inference from Transformers via Speculative Decoding." November 2022. arXiv:2211.17192.
+
+Draft k tokens with a small fast model, then verify all k in a single forward pass of the large model. The rejection-sampling scheme guarantees the output distribution is identical to sampling from the target model directly -- so this trades wasted compute for speed, not quality for speed. Stops helping once the batch is large enough to be compute-bound.
+
+URL: https://arxiv.org/abs/2211.17192
+
+---
+
+### 90. Orca
+
+**Yu et al.** "Orca: A Distributed Serving System for Transformer-Based Generative Models." OSDI 2022.
+
+Introduces iteration-level scheduling -- now universally called continuous batching -- where the scheduler makes its decision at every token rather than every batch, so a finished sequence's slot is filled immediately. Typically 2-4x throughput on realistic traffic, and the single largest win in LLM serving.
+
+URL: https://www.usenix.org/conference/osdi22/presentation/yu
+
+---
+
+### 91. SGLang / RadixAttention
+
+**Zheng et al.** "SGLang: Efficient Execution of Structured Language Model Programs." December 2023. arXiv:2312.07104.
+
+RadixAttention keeps a radix tree of cached KV prefixes across requests, so a shared system prompt is computed once for all users rather than once per user. Generalizes vLLM's within-request prefix sharing to across-request sharing, which is the dominant pattern in production chat.
+
+URL: https://arxiv.org/abs/2312.07104
+
+---
+
+### 92. MMLU
+
+**Hendrycks et al.** "Measuring Massive Multitask Language Understanding." September 2020. arXiv:2009.03300.
+
+57 subjects of multiple-choice knowledge questions, which became the field's default headline number. Useful as a regression detector; poor as a discriminator between frontier models, being multiple-choice, saturated at the top, and present in every web crawl for years.
+
+URL: https://arxiv.org/abs/2009.03300
+
+---
+
+### 93. HELM
+
+**Liang et al.** "Holistic Evaluation of Language Models." November 2022. arXiv:2211.09110.
+
+Not a benchmark but a methodology: many models, many scenarios, many metrics, with the protocol fixed and published so numbers are actually comparable. Its contribution is standardization, which is the thing Chapter 23 section 23.4 argues is missing from most reported comparisons.
+
+URL: https://arxiv.org/abs/2211.09110
+
+---
+
+### 94. Chatbot Arena
+
+**Chiang et al.** "Chatbot Arena: An Open Platform for Evaluating LLMs by Human Preference." March 2024. arXiv:2403.04132.
+
+Collects blinded pairwise human preferences on real user prompts and fits a Bradley-Terry model to produce ratings. Measures which response a user prefers on first read without verification -- a real property, and not the same as accuracy, reliability, or usefulness over a long task.
+
+URL: https://arxiv.org/abs/2403.04132
+
+---
+
+### 95. MT-Bench / LLM-as-a-Judge
+
+**Zheng et al.** "Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena." June 2023. arXiv:2306.05685.
+
+The reference for using a strong model as a preference judge: measures agreement with human raters (comparable to human-human agreement), and catalogues the biases -- position, length, self-preference, and verbosity -- that any judge-based evaluation must correct for.
+
+URL: https://arxiv.org/abs/2306.05685
+
+---
+
+### 96. GPQA
+
+**Rein et al.** "GPQA: A Graduate-Level Google-Proof Q&A Benchmark." November 2023. arXiv:2311.12022.
+
+Graduate-level science questions where domain experts score well and skilled non-experts with unrestricted web access do not. Built specifically to resist the saturation and contamination that made MMLU useless as a frontier discriminator.
+
+URL: https://arxiv.org/abs/2311.12022
+
+---
+
 ## Notes on the references
 
 - The frontier moves fast. Many of these are 2023–2025; expect newer versions.
