@@ -1,0 +1,29 @@
+# Dependencies for the runnable labs in labs/.
+#
+# Google Colab already ships torch, numpy, matplotlib, and datasets, so in Colab
+# you usually only need the two lines the lab itself pip-installs. This file
+# exists so the labs also run locally and in CI.
+#
+#   pip install -r requirements.txt
+
+# Core numerics. Every lab uses these.
+numpy>=1.24
+torch>=2.1
+
+# Tokenizer labs (Chapter 4).
+tokenizers>=0.15
+sentencepiece>=0.1.99
+transformers>=4.40
+
+# Data-pipeline labs (Chapter 3): dedup, filtering, quality classifiers.
+datasets>=2.18
+scikit-learn>=1.3
+
+# Plotting for the scaling-law and optimizer labs (Chapters 8, 21).
+matplotlib>=3.7
+
+# Post-training labs (Chapters 11-19). trl provides reference implementations of
+# SFT/DPO/GRPO that the labs compare their from-scratch versions against.
+trl>=0.9
+peft>=0.10
+accelerate>=0.29

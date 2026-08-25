@@ -1,0 +1,24 @@
+{
+  "title": "Frontier LLM Engineering",
+  "description": "A free, open field guide to how frontier large language models are actually built — data pipelines, pre-training, post-training, and the infrastructure underneath.",
+  "language": "en",
+  "structure": {
+    "readme": "README.md",
+    "summary": "SUMMARY.md"
+  },
+  "plugins": [
+    "hints",
+    "katex",
+    "mermaid-gb3",
+    "expandable-chapters",
+    "anchorjs",
+    "-lunr",
+    "-search",
+    "search-pro"
+  ],
+  "pluginsConfig": {
+    "theme-default": {
+      "showLevel": true
+    }
+  }
+}

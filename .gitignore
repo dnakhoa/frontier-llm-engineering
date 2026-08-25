@@ -1,0 +1,28 @@
+# macOS
+.DS_Store
+._*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.ipynb_checkpoints/
+*.egg-info/
+
+# Notebooks generated from labs/*.py by tools/build_notebooks.py.
+# They ARE committed (Colab needs them) — this block is only for stray outputs.
+labs/**/outputs/
+labs/**/checkpoints/
+labs/**/*.bin
+labs/**/*.safetensors
+
+# Book builders
+_book/
+node_modules/
+book/.gitbook/
+
+# Editors
+.idea/
+.vscode/

@@ -1,0 +1,89 @@
+# Summary
+
+* [Frontier LLM Engineering](README.md)
+* [Preface](book/preface.md)
+* [How to use this book](book/how-to-use-this-book.md)
+* [Prerequisites and self-assessment](book/prerequisites.md)
+* [Learning paths](book/learning-paths.md)
+
+## Part I — The Frontier
+
+* [Chapter 1: What a real frontier training run looks like](book/part-1-frontier/01-what-a-frontier-run-looks-like.md)
+* [Chapter 2: The org chart — who actually does what](book/part-1-frontier/02-org-chart-and-roles.md)
+
+## Part II — Pre-training
+
+* [Chapter 3: Trillion-token data pipelines](book/part-2-pretraining/03-data-pipelines.md)
+* [Chapter 4: Tokenization at scale](book/part-2-pretraining/04-tokenization.md)
+* [Chapter 5: Architecture — dense, MoE, attention variants](book/part-2-pretraining/05-architecture.md)
+* [Chapter 6: Distributed training — TP, PP, DP, CP, EP](book/part-2-pretraining/06-distributed-training.md)
+* [Chapter 7: Cluster reality — topology, NCCL, fault tolerance](book/part-2-pretraining/07-cluster-reality.md)
+* [Chapter 8: Optimization — precision, schedules, scaling laws](book/part-2-pretraining/08-optimization.md)
+* [Chapter 9: Mid-training — long context, domain annealing](book/part-2-pretraining/09-mid-training.md)
+* [Chapter 10: Case study — DeepSeek-V3 end-to-end](book/part-2-pretraining/10-case-study-deepseek-v3.md)
+
+## Part III — Post-training
+
+* [Chapter 11: SFT, the way frontier labs actually do it](book/part-3-post-training/11-sft-frontier-style.md)
+* [Chapter 12: Reward modeling — the secret sauce](book/part-3-post-training/12-reward-modeling.md)
+* [Chapter 13: PPO and RLOO at frontier scale](book/part-3-post-training/13-ppo-rloo-frontier.md)
+* [Chapter 14: DPO and the offline preference family](book/part-3-post-training/14-dpo-family.md)
+* [Chapter 15: GRPO and the reasoning revolution](book/part-3-post-training/15-grpo-reasoning.md)
+* [Chapter 16: Process reward models, verifiers, search-time compute](book/part-3-post-training/16-process-reward-models.md)
+* [Chapter 17: Constitutional AI, RLAIF, deliberative alignment](book/part-3-post-training/17-constitutional-ai.md)
+* [Chapter 18: Tool use and agentic post-training](book/part-3-post-training/18-tool-use-agentic.md)
+* [Chapter 19: Case study — DeepSeek-R1 end-to-end](book/part-3-post-training/19-case-study-r1.md)
+
+## Part IV — Infra that makes it possible
+
+* [Chapter 20: Custom kernels — Triton, CUDA, fused ops](book/part-4-infra/20-custom-kernels.md)
+* [Chapter 21: Checkpointing, resumption, the two-week-run problem](book/part-4-infra/21-checkpointing-resumption.md)
+* [Chapter 22: Inference and serving](book/part-4-infra/22-inference-serving.md)
+* [Chapter 23: Evaluation — capability, contamination, safety](book/part-4-infra/23-evaluation.md)
+
+## Part V — The job
+
+* [Chapter 24: Translating frontier JDs into a skill stack](book/part-5-the-job/24-translating-jds.md)
+* [Chapter 25: Career paths at frontier labs](book/part-5-the-job/25-career-paths.md)
+* [Chapter 26: What's next — multi-modal, agent RL, synthetic data 2.0](book/part-5-the-job/26-whats-next.md)
+
+## Practice
+
+* [Exercises](exercises/README.md)
+  * [Chapter 1 — What a frontier run looks like](exercises/ch01.md)
+  * [Chapter 2 — The org chart](exercises/ch02.md)
+  * [Chapter 3 — Data pipelines](exercises/ch03.md)
+  * [Chapter 4 — Tokenization](exercises/ch04.md)
+  * [Chapter 5 — Architecture](exercises/ch05.md)
+  * [Chapter 6 — Distributed training](exercises/ch06.md)
+  * [Chapter 7 — Cluster reality](exercises/ch07.md)
+  * [Chapter 8 — Optimization](exercises/ch08.md)
+  * [Chapter 9 — Mid-training](exercises/ch09.md)
+  * [Chapter 10 — DeepSeek-V3 case study](exercises/ch10.md)
+  * [Chapter 11 — SFT](exercises/ch11.md)
+  * [Chapter 12 — Reward modeling](exercises/ch12.md)
+  * [Chapter 13 — PPO and RLOO](exercises/ch13.md)
+  * [Chapter 14 — DPO](exercises/ch14.md)
+  * [Chapter 15 — GRPO](exercises/ch15.md)
+  * [Chapter 16 — Process rewards](exercises/ch16.md)
+  * [Chapter 17 — Constitutional AI](exercises/ch17.md)
+  * [Chapter 18 — Tool use](exercises/ch18.md)
+  * [Chapter 19 — DeepSeek-R1 case study](exercises/ch19.md)
+  * [Chapter 20 — Custom kernels](exercises/ch20.md)
+  * [Chapter 21 — Checkpointing](exercises/ch21.md)
+  * [Chapter 22 — Inference and serving](exercises/ch22.md)
+  * [Chapter 23 — Evaluation](exercises/ch23.md)
+  * [Chapter 24 — Translating JDs](exercises/ch24.md)
+  * [Chapter 25 — Career paths](exercises/ch25.md)
+  * [Chapter 26 — What's next](exercises/ch26.md)
+* [Solutions](exercises/solutions/README.md)
+* [Labs — runnable code](labs/README.md)
+
+## Appendix
+
+* [Glossary](book/appendix/a-glossary.md)
+* [References](book/appendix/b-references.md)
+* [Style guide](book/appendix/style-guide.md)
+* [Changelog](CHANGELOG.md)
+* [Contributing](CONTRIBUTING.md)
+* [License](LICENSE)

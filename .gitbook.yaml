@@ -1,0 +1,15 @@
+# GitBook Git Sync configuration.
+#
+# Point a GitBook space at this repository, enable Git Sync, and GitBook will
+# read the table of contents from SUMMARY.md and the landing page from README.md.
+# https://gitbook.com/docs/getting-started/git-sync
+
+root: ./
+
+structure:
+  readme: README.md
+  summary: SUMMARY.md
+
+redirects:
+  # Chapter 6 used to collide with a stray build report; keep the old path alive.
+  book/part-2-pretraining/06-deliverable: book/part-2-pretraining/06-distributed-training.md

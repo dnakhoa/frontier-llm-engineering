@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  book:
+    name: Book integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Every internal link and anchor resolves
+        run: python3 tools/check_links.py
+
+      - name: Every SUMMARY chapter has a matching exercise set
+        run: python3 tools/check_structure.py
+
+      - name: Committed notebooks match their source labs
+        run: python3 tools/build_notebooks.py --check
+
+  labs:
+    name: Labs run on CPU
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install lab dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Smoke-test every lab
+        # Labs are written to detect CPU-only environments and shrink their
+        # workload accordingly, so the full set runs in a few minutes on a
+        # GitHub runner. FLE_SMOKE_TEST=1 caps steps and dataset sizes.
+        env:
+          FLE_SMOKE_TEST: "1"
+        run: python3 tools/run_labs.py

@@ -1,0 +1,44 @@
+# License
+
+This project is deliberately split into two licenses so that both the writing and
+the code are as reusable as possible.
+
+## Prose, diagrams, exercises — CC BY-SA 4.0
+
+Everything in `book/`, `exercises/`, and the Markdown documentation at the repo
+root is licensed under the
+**Creative Commons Attribution-ShareAlike 4.0 International License (CC BY-SA 4.0)**.
+
+Full legal text: https://creativecommons.org/licenses/by-sa/4.0/legalcode
+Human-readable summary: https://creativecommons.org/licenses/by-sa/4.0/
+
+You are free to:
+
+- **Share** — copy and redistribute the material in any medium or format
+- **Adapt** — remix, transform, and build upon the material for any purpose,
+  including commercially
+
+Under these terms:
+
+- **Attribution** — credit *Frontier LLM Engineering* and link back to this
+  repository, and indicate if changes were made.
+- **ShareAlike** — if you remix or build upon the material, distribute your
+  contributions under this same license.
+
+Copyright (c) 2026 Frontier LLM Engineering contributors.
+
+## Code — MIT
+
+Everything in `labs/`, `tools/`, and every code block embedded in the chapters is
+licensed under the **MIT License**. See [LICENSE-CODE](LICENSE-CODE).
+
+The intent is that you can lift any lab, snippet, or configuration into your own
+work — including proprietary work — without the ShareAlike obligation.
+
+## Third-party material
+
+Configurations, numbers, and results quoted from published papers and technical
+reports belong to their original authors and are reproduced here under fair use
+for commentary and education. Every one of them is cited in
+[the reference list](book/appendix/b-references.md). If you are an author and
+want a citation corrected or a quotation removed, open an issue.
