@@ -51,7 +51,7 @@ New readers: read the [Preface](book/preface.md), then [Chapter 1](book/part-1-f
 book/          26 chapters across 5 parts, plus glossary and 96 references
 exercises/     26 problem sets — arithmetic drills, design problems,
                paper-reading prompts — each with a worked solution set
-labs/          4 runnable labs you can paste straight into Colab
+labs/          5 runnable labs you can paste straight into Colab
 tools/         link checker, structure checker, notebook builder, lab runner
 ```
 
@@ -59,7 +59,7 @@ tools/         link checker, structure checker, notebook builder, lab runner
 
 **Complete:** all 26 chapters (~135,000 words), all 26 exercise sets and all 26 worked solution sets (~125,000 words), the glossary, and 96 references.
 
-**Not complete: the labs.** Four are written and tested — BPE tokenization, MoE routing, a distributed-training memory model, and SFT masking/packing. The chapters name about fifteen more that do not exist yet; [`labs/README.md`](labs/README.md) lists exactly which, and the exercise sets' lab problems double as specifications for them. Nothing links to a file that is not there, so you will not hit a dead link — but the book currently describes more labs than it ships, and that is worth knowing before you start.
+**Not complete: the labs.** Five are written and tested — BPE tokenization, MoE routing, a distributed-training memory model, collective-communication bandwidth, and SFT masking/packing. The chapters name about fourteen more that do not exist yet; [`labs/README.md`](labs/README.md) lists exactly which, and the exercise sets' lab problems double as specifications for them. Nothing links to a file that is not there, so you will not hit a dead link — but the book currently describes more labs than it ships, and that is worth knowing before you start.
 
 If you want to build one, [contributions are very welcome](CONTRIBUTING.md).
 
@@ -75,7 +75,7 @@ Chapters 6 (distributed training), 8 (optimization), and 20 (kernels) are densel
 
 ## Running the labs
 
-All four labs run on a laptop CPU in under a minute; none require a GPU or a download. Every lab is a plain `.py` file that is also published as a `.ipynb`. You have three options, in increasing order of setup:
+All five labs run on a laptop CPU in under a minute; none require a GPU or a download. Every lab is a plain `.py` file that is also published as a `.ipynb`. You have three options, in increasing order of setup:
 
 **1. Copy-paste into Colab.** Open any lab's `.py` file, copy the whole thing into a Colab cell, run it. The labs are written to work this way — dependencies self-install, no local files are read, and everything sizes itself to the hardware it finds.
 

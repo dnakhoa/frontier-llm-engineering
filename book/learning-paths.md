@@ -33,7 +33,7 @@ This is the book as designed. At roughly 8 hours a week it lands in a semester.
 | 4 | 5 (§5.1–5.8) | `lab05_attention_variants` | You can derive the KV-cache size for MHA, MQA, GQA, and MLA |
 | 5 | 5 (§5.9–end) | `lab05_moe_routing` | You have watched expert collapse happen and fixed it |
 | 6 | 6 (§6.1–6.8) | `lab06_parallelism_memory_model` | You can size a run: given a model and a cluster, choose the parallelism |
-| 7 | 6 (§6.9–end), 7 | `lab07_collective_bandwidth` | You can explain why a job slows down when the scheduler splits it across racks |
+| 7 | 6 (§6.9–end), 7 | [`lab07_collective_bandwidth`](../labs/lab07_collective_bandwidth.py) | You can explain why a job slows down when the scheduler splits it across racks |
 | 8 | 8 (§8.1–8.8) | `lab08_precision_and_stability` | You can explain why FP8 training needs per-block scaling |
 | 9 | 8 (§8.9–end) | `lab08_scaling_laws` | You have fit a scaling law and used it to pick a model size |
 | 10 | 9 | `lab09_rope_extension` | You have extended a model's context with YaRN and measured the cost |
@@ -60,7 +60,7 @@ Core: **1, 2, 3, 4, 5, 6, 7, 8, 9, 10**, plus **21** (checkpointing) from Part I
 | 2 | Tokenization and architecture | 4, 5 (§5.1–5.8) | `lab04_train_a_bpe_tokenizer` |
 | 3 | MoE | 5 (§5.9–end) | `lab05_moe_routing` |
 | 4 | Parallelism | 6 | `lab06_parallelism_memory_model` |
-| 5 | The cluster | 7, 21 | `lab07_collective_bandwidth`, `lab21_checkpoint_resume` |
+| 5 | The cluster | 7, 21 | [`lab07_collective_bandwidth`](../labs/lab07_collective_bandwidth.py), `lab21_checkpoint_resume` |
 | 6 | Precision and stability | 8 (§8.1–8.8) | `lab08_precision_and_stability` |
 | 7 | Scaling laws and mid-training | 8 (§8.9–end), 9 | `lab08_scaling_laws`, `lab09_rope_extension` |
 | 8 | Synthesis | 10, 24 | — |
@@ -104,7 +104,7 @@ Core: **1, 2, 5 (§5.1–5.8), 6, 7, 20, 21, 22, 23**.
 |---|---|---|---|
 | 1 | Orientation and architecture shapes | 1, 2, 5 (§5.1–5.8) | `lab05_attention_variants` |
 | 2 | Parallelism | 6 | `lab06_parallelism_memory_model` |
-| 3 | Cluster and failure | 7, 21 | `lab07_collective_bandwidth`, `lab21_checkpoint_resume` |
+| 3 | Cluster and failure | 7, 21 | [`lab07_collective_bandwidth`](../labs/lab07_collective_bandwidth.py), `lab21_checkpoint_resume` |
 | 4 | Kernels | 20 | `lab20_triton_fused_kernel` |
 | 5 | Serving | 22 | `lab22_kv_cache_and_batching` |
 | 6 | Evaluation infra, synthesis | 23, 24 | `lab23_contamination_check` |

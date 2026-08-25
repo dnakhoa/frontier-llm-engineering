@@ -4,22 +4,23 @@ Runnable code for the mechanisms the chapters describe. Each lab implements the 
 
 ## What exists today
 
-**Four labs, all tested and all passing CI on every commit.**
+**Five labs, all tested and all passing CI on every commit.**
 
 | Lab | Chapter | What you build | Runtime (CPU) |
 |---|---|---|---|
 | [`lab04_train_a_bpe_tokenizer`](lab04_train_a_bpe_tokenizer.py) | [4 — Tokenization](../book/part-2-pretraining/04-tokenization.md) | Byte-level BPE from scratch, then fertility measured across five languages on held-out text. Shows the ~1.8× penalty an English-only merge corpus imposes on Vietnamese, and what deleting the pre-tokenizer regex does to the learned merges. | ~4 s |
 | [`lab05_moe_routing`](lab05_moe_routing.py) | [5 — Architecture](../book/part-2-pretraining/05-architecture.md) | Top-k router and a real MoE layer. Watch load imbalance reach a ~3× straggler tax, then fix it two ways — the standard auxiliary loss, and DeepSeek's auxiliary-loss-free bias controller — and measure what each costs the loss. | ~50 s |
 | [`lab06_parallelism_memory_model`](lab06_parallelism_memory_model.py) | [6 — Distributed training](../book/part-2-pretraining/06-distributed-training.md) | A memory-and-throughput calculator for dense and MoE models under any TP/PP/EP/DP/ZeRO configuration. Searches the configuration space and tells you what fits and roughly how fast. Pure arithmetic, no GPU. | ~2 s |
+| [`lab07_collective_bandwidth`](lab07_collective_bandwidth.py) | [7 — Cluster reality](../book/part-2-pretraining/07-cluster-reality.md) | A cost model for ring and hierarchical all-reduce, all-to-all under oversubscription, the straggler tax, and gradient bucketing. Shows the same job losing ~2× throughput to an interconnect decision. Pure arithmetic, runs instantly. | < 1 s |
 | [`lab11_sft_packing`](lab11_sft_packing.py) | [11 — SFT](../book/part-3-post-training/11-sft-frontier-style.md) | Loss masking and sequence packing from scratch. Reproduces all three classic masking bugs and shows what each does to a trained model, then measures packing cross-contamination — which drops to *exactly* zero under block-diagonal attention. | ~30 s |
 
 ## What does not exist yet
 
-**The other labs referenced in the chapters have not been written.** Chapters 3, 7, 8, 9, 12, 13, 15, 16, 20, 21, 22, and 23 each name a lab in their closing section and in their exercise set; those names are placeholders describing what the lab *would* do, not links to code.
+**The other labs referenced in the chapters have not been written.** Chapters 3, 8, 9, 12, 13, 15, 16, 20, 21, 22, and 23 each name a lab in their closing section and in their exercise set; those names are placeholders describing what the lab *would* do, not links to code.
 
 Named but not written:
 
-`lab03_dedup_and_quality` · `lab05_attention_variants` · `lab07_collective_bandwidth` · `lab08_precision_and_stability` · `lab08_scaling_laws` · `lab09_rope_extension` · `lab12_reward_model` · `lab13_ppo_minimal` · `lab14_dpo_from_scratch` · `lab15_grpo_countdown` · `lab16_best_of_n_and_prm` · `lab20_triton_fused_kernel` · `lab21_checkpoint_resume` · `lab22_kv_cache_and_batching` · `lab23_contamination_check`
+`lab03_dedup_and_quality` · `lab05_attention_variants` · `lab08_precision_and_stability` · `lab08_scaling_laws` · `lab09_rope_extension` · `lab12_reward_model` · `lab13_ppo_minimal` · `lab14_dpo_from_scratch` · `lab15_grpo_countdown` · `lab16_best_of_n_and_prm` · `lab20_triton_fused_kernel` · `lab21_checkpoint_resume` · `lab22_kv_cache_and_batching` · `lab23_contamination_check`
 
 The exercise sets contain "🧪 break the lab" problems for several of these. Read them as specifications: they describe an experiment worth running and state what the common wrong prediction is. If you build one, [the contribution is very welcome](../CONTRIBUTING.md) — the design rules are below and CI will check them.
 
