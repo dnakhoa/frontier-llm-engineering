@@ -560,6 +560,56 @@ URL: https://github.com/deepseek-ai/DualPipe
 
 ---
 
+### 51. Self-Instruct
+
+**Wang et al.** "Self-Instruct: Aligning Language Models with Self-Generated Instructions." December 2022. arXiv:2212.10560.
+
+The paper that made model-generated instruction data respectable. Bootstrap a seed set of human-written tasks into a much larger set by having the model generate new instructions and responses, then filter for quality and diversity. The direct ancestor of essentially every synthetic SFT pipeline in use today.
+
+URL: https://arxiv.org/abs/2212.10560
+
+---
+
+### 52. LIMA
+
+**Zhou et al.** "LIMA: Less Is More for Alignment." May 2023. arXiv:2305.11206.
+
+Fine-tunes LLaMA-65B on 1,000 carefully curated examples and argues that alignment is primarily about surfacing capabilities already present in the base model rather than teaching new ones. The counterweight to "more SFT data is always better," and the source of the "superficial alignment hypothesis" framing.
+
+URL: https://arxiv.org/abs/2305.11206
+
+---
+
+### 53. Tulu 3
+
+**Lambert et al.** "Tülu 3: Pushing Frontiers in Open Language Model Post-Training." November 2024. arXiv:2411.15124.
+
+The most complete *open* post-training recipe available: data, code, evaluation suite, and ablations for SFT, DPO, and RLVR (reinforcement learning with verifiable rewards). Not a frontier run, but the best public proxy for what a frontier post-training pipeline contains, and the place to read actual working code for most of Part III.
+
+URL: https://arxiv.org/abs/2411.15124
+
+---
+
+### 54. FLAN
+
+**Chung et al.** "Scaling Instruction-Finetuned Language Models." October 2022. arXiv:2210.11416.
+
+Establishes that instruction-tuning on a large, diverse mixture of existing NLP tasks produces broad zero-shot instruction-following, and that both the number of tasks and the model scale matter. The scale-and-diversity counterpoint to LIMA.
+
+URL: https://arxiv.org/abs/2210.11416
+
+---
+
+### 55. Evol-Instruct
+
+**Xu et al.** "WizardLM: Empowering Large Language Models to Follow Complex Instructions." April 2023. arXiv:2304.12244.
+
+Introduces Evol-Instruct: iteratively rewriting instructions to be harder along controlled axes (added constraints, deepened reasoning, increased specificity). The standard technique for controlling the difficulty distribution of a synthetic SFT set, which in turn sets the capability ceiling of the resulting model.
+
+URL: https://arxiv.org/abs/2304.12244
+
+---
+
 ## Notes on the references
 
 - The frontier moves fast. Many of these are 2023–2025; expect newer versions.
