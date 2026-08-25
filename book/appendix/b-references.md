@@ -690,6 +690,76 @@ URL: https://doi.org/10.1007/BF00992696
 
 ---
 
+### 64. IPO
+
+**Azar et al.** "A General Theoretical Paradigm to Understand Learning from Human Preferences." October 2023. arXiv:2310.12036.
+
+Identifies a structural problem in DPO: when a preference is deterministic, the Bradley-Terry sigmoid makes the optimal reward margin infinite, so nothing bounds how far the policy drifts and the KL constraint stops binding. Replaces the logistic loss with a bounded squared loss around a target margin (IPO).
+
+URL: https://arxiv.org/abs/2310.12036
+
+---
+
+### 65. KTO
+
+**Ethayarajh et al.** "KTO: Model Alignment as Prospect Theoretic Optimization." February 2024. arXiv:2402.01306.
+
+Drops the pairwise requirement entirely: instead of (chosen, rejected) for one prompt, KTO takes individually-labelled good/bad responses and uses a prospect-theory utility with built-in loss aversion. Practically the most important variant for anyone with a shipped product, because thumbs-up/thumbs-down data is already being collected.
+
+URL: https://arxiv.org/abs/2402.01306
+
+---
+
+### 66. ORPO
+
+**Hong et al.** "ORPO: Monolithic Preference Optimization without Reference Model." March 2024. arXiv:2403.07691.
+
+Folds preference optimization into the SFT loss via an odds-ratio penalty, removing both the separate SFT stage and the reference model. Trades the KL constraint's principled anchoring for the empirical anchoring of the SFT term on the chosen response.
+
+URL: https://arxiv.org/abs/2403.07691
+
+---
+
+### 67. SimPO
+
+**Meng et al.** "SimPO: Simple Preference Optimization with a Reference-Free Reward." May 2024. arXiv:2405.14734.
+
+Uses length-normalized average log-probability instead of the summed sequence log-probability, plus an explicit target margin, and drops the reference model. The length normalization addresses DPO's length bias by construction and aligns the training objective with what decoding actually optimizes.
+
+URL: https://arxiv.org/abs/2405.14734
+
+---
+
+### 68. Zephyr
+
+**Tunstall et al.** "Zephyr: Direct Distillation of LM Alignment." October 2023. arXiv:2310.16944.
+
+Demonstrated that DPO on entirely off-policy, AI-generated preference data (UltraFeedback) produces a strong chat model cheaply. The result that made DPO the default for the open community, and a clean example of the off-policy regime discussed in Chapter 14 section 14.5.
+
+URL: https://arxiv.org/abs/2310.16944
+
+---
+
+### 69. Kimi k1.5
+
+**Kimi Team (Moonshot AI).** "Kimi k1.5: Scaling Reinforcement Learning with LLMs." January 2025. arXiv:2501.12599.
+
+A reasoning-RL recipe developed contemporaneously with and independently of DeepSeek-R1, covering long-context RL scaling, the policy-optimization variant used, and length-control techniques. Valuable as a second data point on which parts of the R1 recipe are essential and which are incidental: where the two agree, the choice is probably load-bearing.
+
+URL: https://arxiv.org/abs/2501.12599
+
+---
+
+### 70. Dr. GRPO
+
+**Liu et al.** "Understanding R1-Zero-Like Training: A Critical Perspective." March 2025. arXiv:2503.20783.
+
+Identifies two biases in the GRPO objective. The 1/|o| length normalization penalizes each token of a long wrong answer less than each token of a short wrong answer, quietly rewarding verbosity on failures. The division by group standard deviation amplifies advantages on low-variance prompts, which are exactly the prompts (always-right and always-wrong) that carry no useful signal. Proposes removing both.
+
+URL: https://arxiv.org/abs/2503.20783
+
+---
+
 ## Notes on the references
 
 - The frontier moves fast. Many of these are 2023–2025; expect newer versions.
