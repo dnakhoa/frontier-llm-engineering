@@ -760,6 +760,86 @@ URL: https://arxiv.org/abs/2503.20783
 
 ---
 
+### 71. GSM8K verifiers
+
+**Cobbe et al.** "Training Verifiers to Solve Math Word Problems." October 2021. arXiv:2110.14168.
+
+Introduces the GSM8K dataset and the sample-many-then-verify approach: train a separate model to judge complete solutions, sample a large number at inference, and select the verifier's favourite. Showed that a smaller model with verification could beat a much larger model decoding greedily -- the first clear demonstration that inference compute buys accuracy.
+
+URL: https://arxiv.org/abs/2110.14168
+
+---
+
+### 72. Self-consistency
+
+**Wang et al.** "Self-Consistency Improves Chain of Thought Reasoning in Language Models." March 2022. arXiv:2203.11171.
+
+Sample many reasoning paths and take the majority final answer. Requires no verifier and no extra training. Works because errors are diverse while correct reasoning converges, and remains a strong baseline that more sophisticated methods must beat.
+
+URL: https://arxiv.org/abs/2203.11171
+
+---
+
+### 73. Math-Shepherd
+
+**Wang et al.** "Math-Shepherd: Verify and Reinforce LLMs Step-by-step without Human Annotations." 2024. arXiv:2312.08935.
+
+Generates process-supervision labels automatically: a step is scored by how often completions sampled from that prefix reach the correct final answer. Converts final-answer verification, which is cheap, into step-level labels, which are otherwise expensive. The technique that made PRMs practical outside the one domain with human step annotations.
+
+URL: https://arxiv.org/abs/2312.08935
+
+---
+
+### 74. Scaling test-time compute
+
+**Snell et al.** "Scaling LLM Test-Time Compute Optimally can be More Effective than Scaling Model Parameters." August 2024. arXiv:2408.03314.
+
+Studies how accuracy scales with inference compute across voting, best-of-n, and guided search, and finds that the optimal strategy depends on problem difficulty: sampling and voting on easy problems, search on hard ones. Also the clearest statement of the result that inference compute can substitute for parameters at some budgets.
+
+URL: https://arxiv.org/abs/2408.03314
+
+---
+
+### 75. Generative verifiers
+
+**Zhang et al.** "Generative Verifiers: Reward Modeling as Next-Token Prediction." August 2024. arXiv:2408.15240.
+
+Replaces the scalar verification head with a language model that writes a critique and then states a verdict, reading the score from the verdict token's probability. More accurate than a scalar verifier, trainable against ground-truth correctness, and it localizes errors -- giving step-level information from an outcome-level training signal.
+
+URL: https://arxiv.org/abs/2408.15240
+
+---
+
+### 76. RLAIF
+
+**Lee et al.** "RLAIF vs. RLHF: Scaling Reinforcement Learning from Human Feedback with AI Feedback." September 2023. arXiv:2309.00267.
+
+A direct empirical comparison of AI-generated and human-generated preference labels across summarization, helpful dialogue, and harmless dialogue. Finds them broadly comparable, with AI feedback ahead on harmlessness. The result the whole constitutional/RLAIF approach rests on.
+
+URL: https://arxiv.org/abs/2309.00267
+
+---
+
+### 77. Deliberative alignment
+
+**Guan et al. (OpenAI).** "Deliberative Alignment: Reasoning Enables Safer Language Models." December 2024. arXiv:2412.16339.
+
+Teaches the model the safety specification directly and trains it to reason about that specification before responding, rather than compiling the policy into weights at training time. Generalizes to cases the specification's authors did not anticipate, and makes each individual refusal or compliance legible.
+
+URL: https://arxiv.org/abs/2412.16339
+
+---
+
+### 78. Sleeper Agents
+
+**Hubinger et al.** "Sleeper Agents: Training Deceptive LLMs that Persist Through Safety Training." January 2024. arXiv:2401.05566.
+
+Deliberately trains models with a trigger-conditional behaviour, then applies SFT, RLHF, and adversarial training. The behaviour persists; adversarial training makes it less detectable rather than removing it. The narrow, well-supported conclusion -- that safety training modifies behaviour on the distribution it was trained on and does not reliably remove off-distribution dispositions -- applies to any behaviour you are trying to train out.
+
+URL: https://arxiv.org/abs/2401.05566
+
+---
+
 ## Notes on the references
 
 - The frontier moves fast. Many of these are 2023–2025; expect newer versions.
