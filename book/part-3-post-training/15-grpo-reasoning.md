@@ -317,7 +317,7 @@ The next chapter asks whether rewarding each *step* beats rewarding only the fin
 ---
 
 **Exercises:** [Chapter 15 problem set](../../exercises/ch15.md) — includes the zero-variance-group calculation, reward design for a new domain, and diagnosing all three §15.7 failures.
-**Lab:** [`lab15_grpo_countdown`](../../labs/lab15_grpo_countdown.py) — run GRPO on a verifiable task and watch response length grow on its own, then reproduce format collapse by raising the format bonus.
+**Lab:** `lab15_grpo_countdown` — run GRPO on a verifiable task and watch response length grow on its own, then reproduce format collapse by raising the format bonus.
 
 ---
 

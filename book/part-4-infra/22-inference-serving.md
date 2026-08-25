@@ -258,7 +258,7 @@ The next chapter is evaluation — how you know any of this worked, why most rep
 ---
 
 **Exercises:** [Chapter 22 problem set](../../exercises/ch22.md) — includes KV-cache sizing across attention variants, a concurrency budget, and a batching-policy design problem under an SLO.
-**Lab:** [`lab22_kv_cache_and_batching`](../../labs/lab22_kv_cache_and_batching.py) — implement a KV cache, compare static against continuous batching on a realistic length distribution, and build a paged block allocator with prefix sharing.
+**Lab:** `lab22_kv_cache_and_batching` — implement a KV cache, compare static against continuous batching on a realistic length distribution, and build a paged block allocator with prefix sharing.
 
 ---
 

@@ -29,7 +29,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 LABS = ROOT / "labs"
-GITHUB_REPO = "frontier-llm-engineering/frontier-llm-engineering"
+GITHUB_REPO = "dnakhoa/frontier-llm-engineering"
 BRANCH = "main"
 
 

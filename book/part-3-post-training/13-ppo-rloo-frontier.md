@@ -362,7 +362,7 @@ The next chapter takes the opposite approach: DPO, which removes the reward mode
 ---
 
 **Exercises:** [Chapter 13 problem set](../../exercises/ch13.md) — includes the four-model memory budget, a KL-budget design problem, and diagnosing six broken runs from their curves.
-**Lab:** [`lab13_ppo_minimal`](../../labs/lab13_ppo_minimal.py) — PPO and RLOO on the same task, with the KL budget made visible and reward hacking reproducible on demand.
+**Lab:** `lab13_ppo_minimal` — PPO and RLOO on the same task, with the KL budget made visible and reward hacking reproducible on demand.
 
 ---
 

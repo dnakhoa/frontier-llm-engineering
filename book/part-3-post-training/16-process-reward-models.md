@@ -269,7 +269,7 @@ The next chapter turns from capability to values: Constitutional AI, RLAIF, and 
 ---
 
 **Exercises:** [Chapter 16 problem set](../../exercises/ch16.md) — includes the PRM labelling cost calculation, a best-of-$N$ scaling analysis, and a build-or-skip decision problem.
-**Lab:** [`lab16_best_of_n_and_prm`](../../labs/lab16_best_of_n_and_prm.py) — compare majority voting, best-of-$N$, and PRM-guided selection on the same task, and find the $N$ at which a flawed verifier starts to hurt.
+**Lab:** `lab16_best_of_n_and_prm` — compare majority voting, best-of-$N$, and PRM-guided selection on the same task, and find the $N$ at which a flawed verifier starts to hurt.
 
 ---
 

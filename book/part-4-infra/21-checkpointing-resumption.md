@@ -289,7 +289,7 @@ The next chapter is inference and serving: where the model finally meets a user,
 ---
 
 **Exercises:** [Chapter 21 problem set](../../exercises/ch21.md) — includes checkpoint sizing for an MoE, the optimal-interval calculation under several failure regimes, and designing a resumable sharded data loader.
-**Lab:** [`lab21_checkpoint_resume`](../../labs/lab21_checkpoint_resume.py) — build a sharded checkpoint with full state, then write the test that catches the silent data-loader bug.
+**Lab:** `lab21_checkpoint_resume` — build a sharded checkpoint with full state, then write the test that catches the silent data-loader bug.
 
 ---
 
