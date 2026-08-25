@@ -122,10 +122,6 @@ Code in `labs/`, `tools/`, and the chapters: [MIT](LICENSE-CODE) — lift it int
 - "Frontier lab" means a lab that trains its own foundation model from scratch — Anthropic, OpenAI, Google DeepMind, Meta, xAI, Microsoft, Alibaba (Qwen), DeepSeek, Moonshot, ByteDance, Zhipu, Mistral, and similar.
 - Where a lab has not published something, we say so instead of guessing.
 
-## Also by the author
-
-**[Everything Data Structures](https://github.com/dnakhoa/everything-data-structures)** — a complete free course on data structures in 5 volumes and 31 chapters, from Big-O to distributed systems. Read it at [dnakhoa.github.io/everything-data-structures](https://dnakhoa.github.io/everything-data-structures/).
-
 ## Status
 
 A living document. The frontier moves fast; expect chapters to be revised as new papers and technical reports drop. See [the changelog](CHANGELOG.md) for what moved recently.
