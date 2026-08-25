@@ -6,6 +6,9 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- **The site is now built with mdBook** (the same toolchain and rust/navy theme as Everything Data Structures), replacing Honkit. All published URLs are unchanged. Math is rendered client-side with KaTeX using Pandoc-style `$` delimiters — inline math must hug its dollar signs, which is what keeps prose like "costs $2 and $15" from being parsed as math. Mermaid diagrams render client-side and follow the light/dark theme.
+
 ### Added
 - **Chapters 11-26** — Parts III (post-training), IV (infrastructure), and V (the job), written from scratch. ~90,000 words across 16 chapters.
 - **All 26 exercise sets and 26 worked solution sets** (~125,000 words): arithmetic drills, design problems, paper-reading prompts, and lab experiments with stated predictions.

@@ -1,0 +1,32 @@
+[book]
+title = "Frontier LLM Engineering"
+description = "A free, open field guide to how frontier large language models are actually built — data pipelines, pre-training, post-training, and the infrastructure underneath."
+authors = ["Ngoc Anh Khoa Doan"]
+language = "en"
+src = "."
+
+[build]
+build-dir = "_book"
+create-missing = false
+
+[output.html]
+additional-css = ["theme/custom.css"]
+additional-js = ["theme/math-and-diagrams.js"]
+default-theme = "rust"
+preferred-dark-theme = "navy"
+git-repository-url = "https://github.com/dnakhoa/frontier-llm-engineering"
+edit-url-template = "https://github.com/dnakhoa/frontier-llm-engineering/edit/main/{path}"
+site-url = "/frontier-llm-engineering/"
+no-section-label = true
+
+[output.html.fold]
+enable = true
+level = 1
+
+[output.html.search]
+enable = true
+limit-results = 30
+use-boolean-and = true
+
+[output.html.print]
+enable = true

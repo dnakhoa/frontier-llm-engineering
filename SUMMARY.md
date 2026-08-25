@@ -6,12 +6,12 @@
 * [Prerequisites and self-assessment](book/prerequisites.md)
 * [Learning paths](book/learning-paths.md)
 
-## Part I — The Frontier
+# Part I — The Frontier
 
 * [Chapter 1: What a real frontier training run looks like](book/part-1-frontier/01-what-a-frontier-run-looks-like.md)
 * [Chapter 2: The org chart — who actually does what](book/part-1-frontier/02-org-chart-and-roles.md)
 
-## Part II — Pre-training
+# Part II — Pre-training
 
 * [Chapter 3: Trillion-token data pipelines](book/part-2-pretraining/03-data-pipelines.md)
 * [Chapter 4: Tokenization at scale](book/part-2-pretraining/04-tokenization.md)
@@ -22,7 +22,7 @@
 * [Chapter 9: Mid-training — long context, domain annealing](book/part-2-pretraining/09-mid-training.md)
 * [Chapter 10: Case study — DeepSeek-V3 end-to-end](book/part-2-pretraining/10-case-study-deepseek-v3.md)
 
-## Part III — Post-training
+# Part III — Post-training
 
 * [Chapter 11: SFT, the way frontier labs actually do it](book/part-3-post-training/11-sft-frontier-style.md)
 * [Chapter 12: Reward modeling — the secret sauce](book/part-3-post-training/12-reward-modeling.md)
@@ -34,20 +34,20 @@
 * [Chapter 18: Tool use and agentic post-training](book/part-3-post-training/18-tool-use-agentic.md)
 * [Chapter 19: Case study — DeepSeek-R1 end-to-end](book/part-3-post-training/19-case-study-r1.md)
 
-## Part IV — Infra that makes it possible
+# Part IV — Infra that makes it possible
 
 * [Chapter 20: Custom kernels — Triton, CUDA, fused ops](book/part-4-infra/20-custom-kernels.md)
 * [Chapter 21: Checkpointing, resumption, the two-week-run problem](book/part-4-infra/21-checkpointing-resumption.md)
 * [Chapter 22: Inference and serving](book/part-4-infra/22-inference-serving.md)
 * [Chapter 23: Evaluation — capability, contamination, safety](book/part-4-infra/23-evaluation.md)
 
-## Part V — The job
+# Part V — The job
 
 * [Chapter 24: Translating frontier JDs into a skill stack](book/part-5-the-job/24-translating-jds.md)
 * [Chapter 25: Career paths at frontier labs](book/part-5-the-job/25-career-paths.md)
 * [Chapter 26: What's next — multi-modal, agent RL, synthetic data 2.0](book/part-5-the-job/26-whats-next.md)
 
-## Practice
+# Practice
 
 * [Exercises](exercises/README.md)
   * [Chapter 1 — What a frontier run looks like](exercises/ch01.md)
@@ -106,7 +106,7 @@
   * [Solutions 26 — What's next](exercises/solutions/ch26.md)
 * [Labs — runnable code](labs/README.md)
 
-## Appendix
+# Appendix
 
 * [Glossary](book/appendix/a-glossary.md)
 * [References](book/appendix/b-references.md)

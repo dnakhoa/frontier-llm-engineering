@@ -92,16 +92,16 @@ Labs detect a CPU-only machine and shrink their workload automatically. Setting 
 
 ## Reading it as a book
 
-**The hosted book lives at [dnakhoa.github.io/frontier-llm-engineering](https://dnakhoa.github.io/frontier-llm-engineering/)** — 92 pages with KaTeX-rendered math, Mermaid diagrams, and full-text search, rebuilt by CI on every push to `main`.
+**The hosted book lives at [dnakhoa.github.io/frontier-llm-engineering](https://dnakhoa.github.io/frontier-llm-engineering/)** — 92 pages with KaTeX-rendered math, Mermaid diagrams, and full-text search, rebuilt by CI on every push to `main`. Built with [mdBook](https://github.com/rust-lang/mdBook), the same toolchain as [Everything Data Structures](https://github.com/dnakhoa/everything-data-structures), so the two sites share one look.
 
 To preview locally:
 
 ```bash
-npm ci
-npx honkit serve
+brew install mdbook   # or: cargo install mdbook
+mdbook serve
 ```
 
-The repo is also a valid GitBook space (`.gitbook.yaml` is configured — point a GitBook space at it and enable Git Sync), and the Markdown renders correctly on GitHub as-is.
+The Markdown also renders correctly on GitHub as-is.
 
 ## Contributing
 
