@@ -610,6 +610,86 @@ URL: https://arxiv.org/abs/2304.12244
 
 ---
 
+### 56. Reward model overoptimization
+
+**Gao, Schulman, Hilton.** "Scaling Laws for Reward Model Overoptimization." October 2022. arXiv:2210.10760.
+
+Trains a "gold" reward model, uses it to generate synthetic preferences, trains a proxy reward model on those, then optimizes against the proxy while tracking the gold. The result is the defining picture of RLHF: the proxy reward rises monotonically while the gold reward peaks and declines. Establishes that overoptimization is structural rather than a property of any particular reward model, and that KL divergence from the initial policy is the natural budget axis.
+
+URL: https://arxiv.org/abs/2210.10760
+
+---
+
+### 57. RewardBench
+
+**Lambert et al.** "RewardBench: Evaluating Reward Models for Language Modeling." March 2024. arXiv:2403.13787.
+
+A benchmark of curated preference pairs across chat, hard chat, safety, and reasoning categories, with known-correct labels. Useful for catching gross reward-model failures and comparing models; subject to the usual caveat that optimizing for a benchmark is not the same as being good.
+
+URL: https://arxiv.org/abs/2403.13787
+
+---
+
+### 58. Llama 2
+
+**Touvron et al.** "Llama 2: Open Foundation and Fine-Tuned Chat Models." July 2023. arXiv:2307.09288.
+
+The most operationally detailed public account of production reward modelling: two separate reward models (helpfulness and safety), a margin term derived from annotator-rated preference strength, reward models initialized from the chat checkpoints, and five iterations of collect-preferences / retrain-RM / optimize. Notable for reporting where things did not work.
+
+URL: https://arxiv.org/abs/2307.09288
+
+---
+
+### 59. Learning to Summarize
+
+**Stiennon et al.** "Learning to Summarize from Human Feedback." September 2020. arXiv:2009.01325.
+
+Applies the Christiano et al. preference-model framework to language generation for the first time at meaningful scale. The direct ancestor of InstructGPT and of every RLHF pipeline since; also an early clear report of annotator-agreement ceilings and of reward-model overoptimization.
+
+URL: https://arxiv.org/abs/2009.01325
+
+---
+
+### 60. Bradley-Terry
+
+**Bradley, R. A. and Terry, M. E.** "Rank Analysis of Incomplete Block Designs: I. The Method of Paired Comparisons." *Biometrika* 39(3/4), 1952, pp. 324-345.
+
+The paired-comparison model underlying every preference-based reward model. States that the probability one item beats another is a logistic function of the difference in their latent scores. Predates the field it now underpins by seventy years.
+
+URL: https://doi.org/10.2307/2334029
+
+---
+
+### 61. GAE
+
+**Schulman et al.** "High-Dimensional Continuous Control Using Generalized Advantage Estimation." June 2015. arXiv:1506.02438.
+
+Introduces GAE, the exponentially-weighted advantage estimator that interpolates between a low-variance/high-bias one-step estimate and a high-variance/low-bias full-return estimate via the parameter lambda. The advantage estimator PPO uses in RLHF, where gamma is set to 1 because an episode is a single response.
+
+URL: https://arxiv.org/abs/1506.02438
+
+---
+
+### 62. RLOO
+
+**Ahmadian et al.** "Back to Basics: Revisiting REINFORCE-Style Optimization for Learning from Human Feedback in LLMs." February 2024. arXiv:2402.14740.
+
+Argues that PPO's machinery -- the learned value network, per-token credit assignment, GAE -- is largely unnecessary for RLHF, because the reward genuinely is a property of the complete response. Replaces the value network with a leave-one-out baseline computed from the other k-1 samples for the same prompt, matching or beating PPO with substantially less complexity. The direct precursor to GRPO.
+
+URL: https://arxiv.org/abs/2402.14740
+
+---
+
+### 63. REINFORCE
+
+**Williams, R. J.** "Simple Statistical Gradient-Following Algorithms for Connectionist Reinforcement Learning." *Machine Learning* 8, 1992, pp. 229-256.
+
+The policy-gradient theorem that every method in Part III descends from: the gradient of expected reward is the expectation of reward times the gradient of the log-probability. Also introduces the baseline trick that makes the estimator usable in practice.
+
+URL: https://doi.org/10.1007/BF00992696
+
+---
+
 ## Notes on the references
 
 - The frontier moves fast. Many of these are 2023–2025; expect newer versions.
