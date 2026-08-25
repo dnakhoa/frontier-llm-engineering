@@ -840,6 +840,46 @@ URL: https://arxiv.org/abs/2401.05566
 
 ---
 
+### 79. ReAct
+
+**Yao et al.** "ReAct: Synergizing Reasoning and Acting in Language Models." October 2022. arXiv:2210.03629.
+
+Interleaves a reasoning trace with actions and observations, so each action is conditioned on explicit thought about the current state. Now the default shape for agent scaffolds, and the structure reasoning models produce natively.
+
+URL: https://arxiv.org/abs/2210.03629
+
+---
+
+### 80. SWE-bench
+
+**Jimenez et al.** "SWE-bench: Can Language Models Resolve Real-World GitHub Issues?" October 2023. arXiv:2310.06770.
+
+Real issues from Python repositories paired with the commits that fixed them; success is the repository's own test suite passing. Grounded rather than judged, which is its main virtue. Quote the human-validated SWE-bench Verified subset (500 instances) rather than the original set, which contained underspecified and broken instances.
+
+URL: https://arxiv.org/abs/2310.06770
+
+---
+
+### 81. tau-bench
+
+**Yao et al.** "tau-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains." June 2024. arXiv:2406.12045.
+
+Retail and airline domains where an agent must follow domain policy while interacting with a simulated user. Its most valuable contribution is the pass^k metric -- the fraction of tasks solved on all k independent attempts -- which measures reliability rather than capability. The gap between pass@1 and pass^8 is large for current models and is what deployment actually cares about.
+
+URL: https://arxiv.org/abs/2406.12045
+
+---
+
+### 82. WebArena
+
+**Zhou et al.** "WebArena: A Realistic Web Environment for Building Autonomous Agents." July 2023. arXiv:2307.13854.
+
+Self-hosted functional websites -- shopping, forum, wiki, code hosting -- with tasks requiring real navigation and state change. Self-hosting is the load-bearing design decision: the environment is reproducible and cannot be contaminated by the live web changing underneath the benchmark.
+
+URL: https://arxiv.org/abs/2307.13854
+
+---
+
 ## Notes on the references
 
 - The frontier moves fast. Many of these are 2023–2025; expect newer versions.
