@@ -6,19 +6,5 @@
     "readme": "README.md",
     "summary": "SUMMARY.md"
   },
-  "plugins": [
-    "hints",
-    "katex",
-    "mermaid-gb3",
-    "expandable-chapters",
-    "anchorjs",
-    "-lunr",
-    "-search",
-    "search-pro"
-  ],
-  "pluginsConfig": {
-    "theme-default": {
-      "showLevel": true
-    }
-  }
+  "plugins": ["katex", "mermaid-gb3"]
 }

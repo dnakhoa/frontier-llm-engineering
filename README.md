@@ -6,6 +6,8 @@
 [![Prose: CC BY-SA 4.0](https://img.shields.io/badge/prose-CC%20BY--SA%204.0-lightgrey.svg)](LICENSE)
 [![Code: MIT](https://img.shields.io/badge/code-MIT-blue.svg)](LICENSE-CODE)
 
+**📖 Read it online: [dnakhoa.github.io/frontier-llm-engineering](https://dnakhoa.github.io/frontier-llm-engineering/)** — full book with rendered math, diagrams, and search, republished automatically on every commit.
+
 **26 chapters. Exercises with worked solutions for every one of them. Runnable labs that open in Google Colab. No paywall, no application, no cohort, no waitlist.**
 
 ---
@@ -90,15 +92,16 @@ Labs detect a CPU-only machine and shrink their workload automatically. Setting 
 
 ## Reading it as a book
 
-The repo is a valid GitBook space. Point a GitBook space at this repository and enable Git Sync; it reads [`.gitbook.yaml`](.gitbook.yaml), takes its table of contents from [`SUMMARY.md`](SUMMARY.md), and this file becomes the landing page.
+**The hosted book lives at [dnakhoa.github.io/frontier-llm-engineering](https://dnakhoa.github.io/frontier-llm-engineering/)** — 92 pages with KaTeX-rendered math, Mermaid diagrams, and full-text search, rebuilt by CI on every push to `main`.
 
-To preview locally with [Honkit](https://github.com/honkit/honkit) (the maintained fork of the old GitBook CLI):
+To preview locally:
 
 ```bash
+npm ci
 npx honkit serve
 ```
 
-The Markdown also renders correctly on GitHub as-is, so you can just read it here.
+The repo is also a valid GitBook space (`.gitbook.yaml` is configured — point a GitBook space at it and enable Git Sync), and the Markdown renders correctly on GitHub as-is.
 
 ## Contributing
 
