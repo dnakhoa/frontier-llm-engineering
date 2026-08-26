@@ -15,7 +15,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Five runnable labs**, all CPU-only and all tested in CI: BPE tokenization and multilingual fertility (Ch 4), MoE routing and load imbalance (Ch 5), a distributed-training memory and throughput model (Ch 6), a collective-communication cost model (Ch 7), and SFT loss masking and sequence packing (Ch 11).
 - References 51-96, covering the post-training, infrastructure, and evaluation literature.
 - Open-repository scaffolding: dual license (CC BY-SA 4.0 for prose, MIT for code), contribution guide, code of conduct.
-- GitBook Git Sync configuration (`.gitbook.yaml`) and Honkit config (`book.json`) so the repo renders as a book without any further setup.
+- mdBook configuration (`book.toml`) plus a theme that renders KaTeX math and Mermaid diagrams client-side, so the repo builds into a book with no further setup.
 - `tools/check_links.py` — validates every internal link *and* every heading anchor across the book.
 - `tools/check_structure.py` — enforces that every chapter has exercises, every exercise set has solutions, and no lab is orphaned.
 - `tools/build_notebooks.py` — generates Colab-ready `.ipynb` files from the `.py` labs.

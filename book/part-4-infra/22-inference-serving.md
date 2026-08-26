@@ -38,9 +38,11 @@ The 2 is for K and V.
 
 **Llama-3-70B**: 80 layers, 8 KV heads (GQA), head dimension 128, BF16.
 
-$$2 \times 80 \times 8 \times 128 \times 2 = 327{,}680 \text{ bytes} = 320 \text{ KB per token}$$
+$$2 \times 80 \times 8 \times 128 \times 2 = 327{,}680 \text{ bytes} \approx 328 \text{ KB per token}$$
 
-At 8,192 tokens that is **2.6 GB per sequence**. On an 80 GB H100 holding 140 GB of weights across two GPUs, the cache is what limits your concurrency, not the weights.
+At 8,192 tokens that is **2.7 GB per sequence**. On an 80 GB H100 holding 140 GB of weights across two GPUs, the cache is what limits your concurrency, not the weights.
+
+*A note on units, because these figures are exact powers of two and the two conventions visibly disagree here.* This book quotes memory in decimal units throughout, the way accelerator vendors quote HBM: 327,680 bytes is 328 kB decimal and 320 KiB binary. Both are correct and you will see both in the wild. What matters is not picking the "right" one but never mixing them inside a single calculation — a KV-cache budget that silently switches convention halfway is off by 2.4%, which is enough to make a concurrency estimate wrong at the margin.
 
 **The same model with plain multi-head attention** (64 KV heads instead of 8):
 
@@ -82,7 +84,7 @@ This is typically a **2–4× throughput improvement** on realistic traffic and 
 
 Continuous batching creates a memory problem. Each sequence's KV cache grows as it generates, and you do not know the final length in advance.
 
-The naive approach reserves the maximum: allocate a contiguous 2.6 GB buffer for every slot in case the sequence runs to 8K. A request generating 200 tokens uses 2.5% of its reservation. Measured internal fragmentation in pre-vLLM systems was substantial — most of the KV memory was reserved and unused.
+The naive approach reserves the maximum: allocate a contiguous 2.7 GB buffer for every slot in case the sequence runs to 8K. A request generating 200 tokens uses 2.5% of its reservation. Measured internal fragmentation in pre-vLLM systems was substantial — most of the KV memory was reserved and unused.
 
 **PagedAttention** [\[23\]](../appendix/b-references.md#23-vllm) applies virtual memory's central idea. Split the KV cache into fixed-size blocks (typically 16 tokens). A sequence gets a *block table* mapping logical positions to physical blocks, which need not be contiguous. Allocate a new block only when the current one fills.
 
@@ -245,7 +247,7 @@ The first row is the one that matters for readers of Part III. If your GRPO roll
 1. **Prefill is compute-bound; decode is memory-bandwidth-bound.** Nearly every serving technique follows from that one asymmetry.
 2. **At batch size 1, time-per-token is bounded below by the time to read the weights** — about 42 ms for a 70B model in BF16 on one H100, with the tensor cores idle.
 3. **You need a batch of roughly 150 sequences before decode is compute-bound.** Batching is not an optimization, it is *the* optimization.
-4. **KV cache per token is $2 \times L \times H_{kv} \times d_{head} \times$ bytes.** For Llama-3-70B that is 320 KB/token, or 2.6 GB for an 8K sequence — the cache, not the weights, is what limits concurrency.
+4. **KV cache per token is $2 \times L \times H_{kv} \times d_{head} \times$ bytes.** For Llama-3-70B that is 328 KB/token, or 2.7 GB for an 8K sequence — the cache, not the weights, is what limits concurrency.
 5. **GQA and MLA are serving decisions made at architecture time.** MHA at long context costs 8× the cache of GQA; MLA cuts it by another order of magnitude.
 6. **Continuous batching schedules per token, not per batch**, and is worth 2–4× on realistic traffic. `model.generate()` gives you none of it.
 7. **PagedAttention removes fragmentation and enables prefix sharing.** For best-of-$n$ and GRPO group sampling, copy-on-write on the shared prompt is a large win.
