@@ -8,7 +8,7 @@
 
 **📖 Read it online: [dnakhoa.github.io/frontier-llm-engineering](https://dnakhoa.github.io/frontier-llm-engineering/)** — full book with rendered math, diagrams, and search, republished automatically on every commit.
 
-**26 chapters. Exercises with worked solutions for every one of them. Runnable labs that open in Google Colab. No paywall, no application, no cohort, no waitlist.**
+**26 chapters. 19 runnable labs. Exercises with worked solutions for every chapter. No paywall, no application, no cohort, no waitlist.**
 
 ---
 
@@ -51,17 +51,28 @@ New readers: read the [Preface](book/preface.md), then [Chapter 1](book/part-1-f
 book/          26 chapters across 5 parts, plus glossary and 96 references
 exercises/     26 problem sets — arithmetic drills, design problems,
                paper-reading prompts — each with a worked solution set
-labs/          5 runnable labs you can paste straight into Colab
+labs/          19 runnable labs you can paste straight into Colab
 tools/         link checker, structure checker, notebook builder, lab runner
 ```
 
-### What is complete, and what is not
+### What is complete
 
-**Complete:** all 26 chapters (~135,000 words), all 26 exercise sets and all 26 worked solution sets (~125,000 words), the glossary, and 96 references.
+All 26 chapters (~115,000 words), all 26 exercise sets and all 26 worked solution
+sets (~125,000 words), the glossary, 96 references, and **all 19 labs** — every
+lab the chapters name now exists, runs, and is checked by CI on every commit.
 
-**Not complete: the labs.** Five are written and tested — BPE tokenization, MoE routing, a distributed-training memory model, collective-communication bandwidth, and SFT masking/packing. The chapters name about fourteen more that do not exist yet; [`labs/README.md`](labs/README.md) lists exactly which, and the exercise sets' lab problems double as specifications for them. Nothing links to a file that is not there, so you will not hit a dead link — but the book currently describes more labs than it ships, and that is worth knowing before you start.
+Two caveats worth stating plainly, because the book asks the same of the papers
+it cites:
 
-If you want to build one, [contributions are very welcome](CONTRIBUTING.md).
+- **[`lab20_triton_fused_kernel`](labs/lab20_triton_fused_kernel.py) needs a GPU
+  for part of what it teaches.** Triton compiles to GPU code. The lab opens with
+  a table of which sections are exact arithmetic, which are measured on CPU, and
+  which require hardware; the kernel source is included in full and runs where a
+  GPU exists. Nothing is faked.
+- **Chapters 2 and 3 have no per-chapter reference block**, unlike the other 24.
+  Their citations live in [the full reference list](book/appendix/b-references.md).
+
+Corrections and better labs are still very welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### The five parts
 
@@ -75,7 +86,7 @@ Chapters 6 (distributed training), 8 (optimization), and 20 (kernels) are densel
 
 ## Running the labs
 
-All five labs run on a laptop CPU in under a minute; none require a GPU or a download. Every lab is a plain `.py` file that is also published as a `.ipynb`. You have three options, in increasing order of setup:
+Most labs finish on a laptop CPU in seconds; the slowest takes a couple of minutes, and `FLE_SMOKE_TEST=1` shrinks every one of them to seconds (that is what CI runs). None require a download, and only `lab20`'s Triton section wants a GPU. Every lab is a plain `.py` file that is also published as a `.ipynb`. You have three options, in increasing order of setup:
 
 **1. Copy-paste into Colab.** Open any lab's `.py` file, copy the whole thing into a Colab cell, run it. The labs are written to work this way — dependencies self-install, no local files are read, and everything sizes itself to the hardware it finds.
 

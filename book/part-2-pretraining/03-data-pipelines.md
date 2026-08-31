@@ -425,3 +425,8 @@ A pre-training data engineer at a frontier lab is not doing pandas on a CSV. The
 6. **The mix is iterated during the run.** Frontier labs adjust the data mix based on validation loss curves.
 
 The next chapter covers tokenization in more detail, including the BPE / Unigram / SentencePiece tradeoffs and how frontier labs design their tokenizers.
+
+---
+
+**Exercises:** [Chapter 3 problem set](../../exercises/ch03.md) — includes the storage-bill arithmetic and the dedup-ordering design problem.
+**Lab:** [`lab03_dedup_and_quality`](../../labs/lab03_dedup_and_quality.py) — implement MinHash and LSH banding from scratch against a corpus with known duplicates, then discover that the quality classifier's *negative class* is where the corpus policy actually lives.

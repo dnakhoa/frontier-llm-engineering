@@ -363,3 +363,7 @@ The trend across the industry is toward more specialization: a frontier lab is t
 4. **The team shape varies by lab.** DeepSeek is concentrated and engineering-heavy; OpenAI is larger with more separation between roles.
 
 The next chapter starts the deep technical work, with the pre-training data pipeline.
+
+---
+
+**Exercises:** [Chapter 2 problem set](../../exercises/ch02.md) — includes the role-mapping exercise and the on-call escalation problem.

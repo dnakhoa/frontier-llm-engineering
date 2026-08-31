@@ -541,6 +541,11 @@ The next chapter covers the model architecture: the choices in attention, MoE, a
 
 ---
 
+**Exercises:** [Chapter 4 problem set](../../exercises/ch04.md) — includes the fertility arithmetic and the vocabulary-sizing problem.
+**Lab:** [`lab04_train_a_bpe_tokenizer`](../../labs/lab04_train_a_bpe_tokenizer.py) — train a byte-level BPE tokenizer, measure fertility across five languages, and see what deleting the pre-tokenizer regex does to the learned merges.
+
+---
+
 **References for this chapter**
 
 - [\[1\] DeepSeek-V3 Technical Report](../appendix/b-references.md#1-deepseek-v3) — for the DeepSeek-V3 tokenizer description (128K BPE, bilingual EN/ZH).

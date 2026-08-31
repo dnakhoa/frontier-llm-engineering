@@ -319,7 +319,7 @@ The next chapter puts the reward model to work: PPO and RLOO at frontier scale, 
 ---
 
 **Exercises:** [Chapter 12 problem set](../../exercises/ch12.md) — includes the annotator-agreement ceiling calculation and a reward-hacking diagnosis.
-**Lab:** `lab12_reward_model` — train a Bradley-Terry reward model, measure its length bias, and produce the best-of-$n$ curve that reveals overoptimization before you run any RL.
+**Lab:** [`lab12_reward_model`](../../labs/lab12_reward_model.py) — train a Bradley–Terry reward model on pairs with a four-token length confound and watch it score 100% on held-out data while learning *nothing* about correctness. The best-of-$n$ curve exposes it without a single human label.
 
 ---
 

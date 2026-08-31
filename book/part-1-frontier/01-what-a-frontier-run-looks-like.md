@@ -294,6 +294,10 @@ The next chapter breaks down the org chart and the actual JDs at frontier labs.
 
 ---
 
+**Exercises:** [Chapter 1 problem set](../../exercises/ch01.md) — includes the run-budget arithmetic and the incident-triage drill.
+
+---
+
 **References for this chapter**
 
 - [\[1\] DeepSeek-V3 Technical Report](../appendix/b-references.md#1-deepseek-v3) — DeepSeek-AI, December 2024. The most detailed public pre-training report of 2024.

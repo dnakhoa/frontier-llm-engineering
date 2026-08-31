@@ -7,12 +7,31 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Changed
+- **Every chapter now ends with an Exercises pointer, and every chapter with a lab links to it.** Ten chapters (all of Parts I and II) previously had no practice footer at all, which made the Part II labs unreachable from their own chapters.
+- **Seven lab descriptions corrected to match what the labs measure.** Several promised results the finished labs do not produce: `lab23`'s blurb said paraphrase defeats both detectors (the fuzzy detector catches it — *translation* defeats both); `lab15`'s said you would watch response length grow (on a task where length is not instrumental it *collapses*, which is the sharper version of §15.6's point); `lab14`'s and `how-to-use-this-book`'s said the DPO loss is checked against `trl`, which is not available offline, so the lab checks it against the definition and an independently written implementation instead.
+- **The chapter word count in `README.md` corrected from ~135,000 to ~115,000**, the measured figure. The ~125,000 for exercises and solutions was accurate.
+- **The labs design rule relaxed from "under ~400 lines".** No lab has respected it since `lab04`; the rule now describes what it was actually protecting.
+- **The style guide now documents the labs' first-person register**, which deliberately differs from the chapters, along with the process rule behind it: write the code, run it, then write the narration to match, and derive printed claims from measured values so they cannot drift.
 - **The site is now built with mdBook** (the same toolchain and rust/navy theme as Everything Data Structures), replacing Honkit. All published URLs are unchanged. Math is rendered client-side with KaTeX using Pandoc-style `$` delimiters — inline math must hug its dollar signs, which is what keeps prose like "costs $2 and $15" from being parsed as math. Mermaid diagrams render client-side and follow the light/dark theme.
 
 ### Added
 - **Chapters 11-26** — Parts III (post-training), IV (infrastructure), and V (the job), written from scratch. ~90,000 words across 16 chapters.
 - **All 26 exercise sets and 26 worked solution sets** (~125,000 words): arithmetic drills, design problems, paper-reading prompts, and lab experiments with stated predictions.
-- **Five runnable labs**, all CPU-only and all tested in CI: BPE tokenization and multilingual fertility (Ch 4), MoE routing and load imbalance (Ch 5), a distributed-training memory and throughput model (Ch 6), a collective-communication cost model (Ch 7), and SFT loss masking and sequence packing (Ch 11).
+- **All 19 runnable labs**, CPU-first and every one of them run by CI on each commit. The first five: BPE tokenization and multilingual fertility (Ch 4), MoE routing and load imbalance (Ch 5), a distributed-training memory and throughput model (Ch 6), a collective-communication cost model (Ch 7), and SFT loss masking and sequence packing (Ch 11). The remaining fourteen:
+  - `lab03_dedup_and_quality` — MinHash, LSH banding, and a quality classifier whose negative class turns out to *be* the corpus policy.
+  - `lab05_attention_variants` — MHA/GQA/MQA/MLA as one module; Exercise 5.2's arithmetic checked against measured bytes; cached decode verified against a full forward pass.
+  - `lab08_scaling_laws` — fit `L(N) = E + A·N^-α` against a source whose irreducible loss is computable, then check the extrapolation.
+  - `lab08_precision_and_stability` — real FP8/BF16/FP16 casts; per-tensor versus per-block scaling; accumulator precision.
+  - `lab09_rope_extension` — RoPE's wavelength table, then PI, NTK-aware and YaRN measured by position.
+  - `lab12_reward_model` — a Bradley–Terry RM that scores 100% held-out while learning nothing about correctness.
+  - `lab13_ppo_minimal` — PPO and RLOO with the guardrails removed one at a time.
+  - `lab14_dpo_from_scratch` — the DPO loss checked against the definition and an independent implementation.
+  - `lab15_grpo_countdown` — group-relative advantage, the zero-advantage problem, and reward shaping that destroys accuracy.
+  - `lab16_best_of_n_and_prm` — majority voting versus best-of-N versus PRM aggregators.
+  - `lab20_triton_fused_kernel` — fusion's memory-traffic ceiling, `torch.compile` as the real baseline, and the Triton kernel itself.
+  - `lab21_checkpoint_resume` — resume correctness as bit-exactness, and logical versus physical shard layout.
+  - `lab22_kv_cache_and_batching` — continuous batching, paged allocation, prefix sharing.
+  - `lab23_contamination_check` — what an n-gram detector finds, and the three things it cannot.
 - References 51-96, covering the post-training, infrastructure, and evaluation literature.
 - Open-repository scaffolding: dual license (CC BY-SA 4.0 for prose, MIT for code), contribution guide, code of conduct.
 - mdBook configuration (`book.toml`) plus a theme that renders KaTeX math and Mermaid diagrams client-side, so the repo builds into a book with no further setup.
@@ -23,7 +42,8 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - CI workflow running all four checks.
 
 ### Known gaps
-- **The chapters name roughly fourteen labs that do not exist yet.** Chapters 3, 8, 9, 12, 13, 15, 16, 20, 21, 22, and 23 each describe a lab in their closing section; those are specifications, not links. Nothing links to a missing file, and [`labs/README.md`](labs/README.md) lists exactly which are outstanding.
+- **`lab20_triton_fused_kernel` needs a GPU for part of what it teaches.** Triton compiles to GPU code and CI has no GPU. The lab states which sections are exact, which are measured on CPU, and which require hardware, and includes the kernel source in full rather than substituting a fake.
+- **Chapters 2 and 3 have no per-chapter reference block**, unlike the other 24 chapters. Their citations are in the full reference list.
 
 ### Fixed
 - **232 broken reference links.** Every chapter linked to `appendix/b-references.md`, which resolves relative to the chapter's own directory and therefore pointed at nothing. Corrected to `../appendix/b-references.md`.

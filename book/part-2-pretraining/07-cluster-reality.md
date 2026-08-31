@@ -570,6 +570,11 @@ The next chapter is the optimization deep dive: the optimizer internals, the LR 
 
 ---
 
+**Exercises:** [Chapter 7 problem set](../../exercises/ch07.md) — includes the straggler-tax arithmetic and the topology-diagnosis drill.
+**Lab:** [`lab07_collective_bandwidth`](../../labs/lab07_collective_bandwidth.py) — model ring and hierarchical all-reduce, all-to-all under oversubscription, and the straggler tax, and watch the same job lose ~2× throughput to one interconnect decision.
+
+---
+
 **References for this chapter**
 
 - [\[1\] DeepSeek-V3 Technical Report](../appendix/b-references.md#1-deepseek-v3) — primary case study for the 2,048-H800 cluster layout and the parallelism strategy.

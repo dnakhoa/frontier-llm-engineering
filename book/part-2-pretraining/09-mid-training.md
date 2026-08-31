@@ -448,6 +448,11 @@ The next chapter is the case study — DeepSeek-V3 end-to-end — where the mult
 
 ---
 
+**Exercises:** [Chapter 9 problem set](../../exercises/ch09.md) — includes the RoPE-extension comparison and the annealing-mixture design problem.
+**Lab:** [`lab09_rope_extension`](../../labs/lab09_rope_extension.py) — read RoPE's wavelength table to predict what will break, then measure Position Interpolation destroying short-range accuracy that NTK-aware scaling and YaRN preserve.
+
+---
+
 **References for this chapter**
 
 - [\[1\] DeepSeek-V3 Technical Report](../appendix/b-references.md#1-deepseek-v3) — DeepSeek-AI, December 2024. Source for the multi-stage training description and the FP8 + long-context combination.

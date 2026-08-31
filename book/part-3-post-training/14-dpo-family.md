@@ -312,7 +312,7 @@ The next chapter is GRPO and the reasoning revolution — where dropping the val
 ---
 
 **Exercises:** [Chapter 14 problem set](../../exercises/ch14.md) — includes deriving the loss yourself, the decreasing-logprob diagnosis, and a method-selection design problem.
-**Lab:** `lab14_dpo_from_scratch` — implement the DPO loss, verify it matches `trl` to numerical precision, and reproduce the decreasing-chosen-logprob phenomenon.
+**Lab:** [`lab14_dpo_from_scratch`](../../labs/lab14_dpo_from_scratch.py) — implement the DPO loss and verify it against the definition and against an independently written implementation, reproduce the decreasing-chosen-logprob phenomenon, and check which of §14.3's three suspects actually change the objective. One of them turns out not to.
 
 ---
 

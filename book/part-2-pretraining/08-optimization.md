@@ -549,6 +549,11 @@ The next chapter covers mid-training — the domain annealing, long-context, and
 
 ---
 
+**Exercises:** [Chapter 8 problem set](../../exercises/ch08.md) — includes the scaling-law extrapolation problem and the precision drills.
+**Labs:** [`lab08_scaling_laws`](../../labs/lab08_scaling_laws.py) — fit $L(N) = E + AN^{-\alpha}$ against a source whose irreducible loss is *computable*, so you can mark the fitted asymptote and watch the extrapolation fail in a measurable direction. [`lab08_precision_and_stability`](../../labs/lab08_precision_and_stability.py) — real FP8 casts: watch one outlier delete every small value in a tensor, and find the threshold where scaling granularity starts to matter.
+
+---
+
 **References for this chapter**
 
 - [\[1\] DeepSeek-V3](../appendix/b-references.md#1-deepseek-v3) — DeepSeek-AI, December 2024. The FP8 case study.

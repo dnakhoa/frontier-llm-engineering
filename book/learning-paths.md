@@ -39,8 +39,8 @@ This is the book as designed. At roughly 8 hours a week it lands in a semester.
 | 10 | 9 | `lab09_rope_extension` | You have extended a model's context with YaRN and measured the cost |
 | 11 | 10 | — | You can reconstruct DeepSeek-V3's full training recipe from memory |
 | 12 | 11, 12 | `lab11_sft_packing`, `lab12_reward_model` | You have trained a Bradley-Terry reward model on real preferences |
-| 13 | 13, 14 | `lab13_ppo_minimal`, `lab14_dpo_from_scratch` | Your from-scratch DPO loss matches `trl` to numerical precision |
-| 14 | 15, 16 | `lab15_grpo_countdown`, `lab16_best_of_n_and_prm` | You have run GRPO and watched response length grow on its own |
+| 13 | 13, 14 | `lab13_ppo_minimal`, `lab14_dpo_from_scratch` | Your from-scratch DPO loss matches the definition exactly, and you can say which PPO guardrail is holding which failure |
+| 14 | 15, 16 | `lab15_grpo_countdown`, `lab16_best_of_n_and_prm` | You have run GRPO and can explain what decides whether response length grows or collapses |
 | 15 | 17, 18, 19 | — | You can explain how R1-Zero got reasoning with no SFT at all |
 | 16 | 20–23 skim, 24–26 | `lab22_kv_cache_and_batching` | You have a concrete skill-gap list and a plan |
 

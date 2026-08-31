@@ -9,6 +9,31 @@
 - **Casual but technical.** This is not a paper. It is a field guide written by someone who has done the work. We use contractions. We use "we" to refer to the field. We use humor sparingly and only when earned.
 - **Honest about uncertainty.** Where the field does not know, we say so. Where a technique is hotly debated, we say so. Where a lab has not published, we say so.
 
+## Voice in the labs (and only in the labs)
+
+The chapters use the register above: "we" means the field, and the text is
+written from settled understanding. The **labs are different on purpose.**
+
+A lab is a record of someone finding something out, so labs may use the first
+person singular and *should* keep the wrong turns visible:
+
+- **Say what you expected before you say what happened.** Every lab opens with
+  a "predict before you run" prompt, and sections that produced a surprise say
+  so.
+- **Leave the failed drafts in.** Where an earlier version of a lab measured
+  the wrong thing, that belongs in a comment next to the fix. `lab03` documents
+  three measurement artefacts; `lab05` documents an ablation that does not work.
+- **Ship negative results.** A lab that honestly reports "this experiment
+  cannot answer the question, and here is how I know" teaches more than a table
+  that ranks noise. Point at the real evidence in the literature instead.
+- **Never let the prose outrun the output.** Write the code, run it, then write
+  the narration to match. Where a claim depends on a measured value, derive the
+  printed sentence from that value so it cannot go stale — and remember CI runs
+  labs under `FLE_SMOKE_TEST=1`, so the narration must be true in that mode too.
+
+What does not change: no marketing language, no moralising, real numbers, and
+explicit honesty about what a lab does *not* show.
+
 ## Structure
 
 Every chapter has:

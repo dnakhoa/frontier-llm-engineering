@@ -570,6 +570,11 @@ The next chapter covers the cluster reality: the actual hardware, the InfiniBand
 
 ---
 
+**Exercises:** [Chapter 6 problem set](../../exercises/ch06.md) — includes the parallelism-sizing problem and the what-actually-gets-all-reduced question.
+**Lab:** [`lab06_parallelism_memory_model`](../../labs/lab06_parallelism_memory_model.py) — a memory-and-throughput calculator for dense and MoE models under any TP/PP/EP/DP/ZeRO configuration.
+
+---
+
 **References for this chapter**
 
 - [\[1\] DeepSeek-V3 Technical Report](../appendix/b-references.md#1-deepseek-v3) — DeepSeek-AI, December 2024. The 671B MoE with 4-way PP × 8-way EP × 64-way DP on 2,048 H800s, with the DualPipe schedule.
