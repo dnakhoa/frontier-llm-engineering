@@ -93,9 +93,18 @@ The whole pipeline, end-to-end, takes weeks and is itself one of the hardest eng
 
 The pre-training architecture for a 2024–2025 frontier model is almost always a decoder-only transformer, with one of three attention patterns:
 
-- **Multi-Head Attention (MHA)** — the original. Q, K, V all have the same number of heads, the same head dimension. Memory cost: 2 × (num_layers × num_heads × head_dim × seq_len × num_kv_heads) for the KV cache. This is what GPT-3 used. It is rarely used for inference at frontier scale anymore because the KV cache is too big.
-- **Grouped-Query Attention (GQA)** — multiple Q heads share a single K/V head. Memory cost: 2 × (num_layers × num_kv_heads × head_dim × seq_len). Used in Llama 2/3, Mistral, and most post-2023 dense models. The number of KV heads is typically 1/4 or 1/8 of the number of Q heads.
-- **Multi-head Latent Attention (MLA)** — the Q, K, V are all compressed to a low-dimensional latent vector, then expanded back. Memory cost: 2 × (num_layers × latent_dim × seq_len), where latent_dim is much smaller than num_kv_heads × head_dim. Used in DeepSeek-V2 and V3. This gives 93% KV cache reduction compared to MHA at the same quality, which is what makes a 671B model servable.
+All three cache the same thing — the keys and values of every token seen so far
+— and differ only in how many of them there are. One formula covers the family:
+
+$$\text{KV bytes per token} = 2 \times n_{\text{layers}} \times n_{\text{kv heads}} \times d_{\text{head}} \times \text{bytes per element}$$
+
+The 2 is for K and V.
+
+- **Multi-Head Attention (MHA)** — the original. Every query head gets its own K and V, so $n_{\text{kv heads}} = n_{\text{heads}}$ and the cache is as large as it can be. This is what GPT-3 used, and it is rarely used for serving at frontier scale for exactly that reason.
+- **Grouped-Query Attention (GQA)** — several Q heads share one K/V head, so $n_{\text{kv heads}}$ is typically 1/4 or 1/8 of $n_{\text{heads}}$ and the cache shrinks by the same factor. Used in Llama 2/3, Mistral, and most post-2023 dense models.
+- **Multi-head Latent Attention (MLA)** — K and V are not cached per head at all. One low-dimensional latent per token is cached and decompressed during attention, so the per-token cost is the latent width rather than $n_{\text{kv heads}} \times d_{\text{head}}$. Used in DeepSeek-V2 and V3, and the source of the ~93% reduction against MHA that makes a 671B model servable.
+
+Chapter 5 derives all three; §22.3 turns them into a serving budget.
 
 For the FFN / MoE block, three patterns are common:
 
@@ -137,7 +146,7 @@ DeepSeek-V3 was trained on 2,048 H800 GPUs connected via NVLink within a node (8
 
 - **Pipeline parallelism (PP)**: the 60 transformer layers are split across 4 pipeline stages (so each stage has 15 layers). DualPipe overlaps forward and backward of one micro-batch with the all-to-all of another.
 - **Expert parallelism (EP)**: the 256 routed experts are split across the 8 GPUs within a node. The all-to-all collective is used to route tokens to their assigned experts.
-- **Data parallelism (DP)**: the 2,048 GPUs are split into 256 DP groups of 8 GPUs each (since each node has 8 GPUs).
+- **Data parallelism (DP)**: 64 replicas. One replica spans 32 GPUs — 4 pipeline stages × the 8 GPUs holding its experts — so $2{,}048 / 32 = 64$. Gradients are all-reduced across the 64 replicas, with ZeRO-style optimizer-state sharding inside each. §10.9 works the layout through in full.
 - **No tensor parallelism** within the MoE block, because the experts are already sharded. Dense layers use small TP for the attention heads.
 
 The total parallelism is 4 (PP) × 8 (EP, which is also the node size) × 64 (DP, in terms of pipeline replicas) = 2,048 GPUs. This is not a unique configuration — the Qwen3 team used a similar 3D-parallel layout, as did Llama-3.
@@ -207,12 +216,23 @@ Precision is where the recent frontier has moved:
 
 Memory cost per parameter under BF16 + AdamW, for a 70B model:
 - Weights in BF16: 70B × 2 = 140 GB
-- Gradients in BF16: 140 GB
-- Optimizer state (m and v in FP32): 70B × 4 × 2 = 560 GB
-- Activations: depends on batch and sequence, typically 50–200 GB at moderate batch
-- **Total: ~900 GB–1 TB just for the model**
+- Gradients in BF16: 70B × 2 = 140 GB
+- FP32 master copy of the weights: 70B × 4 = 280 GB
+- Optimizer state, `m` and `v` in FP32: 70B × 4 × 2 = 560 GB
+- **Static total: 16 bytes per parameter, 1,120 GB**
+- Activations on top of that: depends on batch and sequence, typically 50–300 GB
 
-This is why a 70B model needs at least 8 H100s (640 GB HBM) for inference and 64+ H100s for training. For a 671B model like DeepSeek-V3 with 37B active, the memory and bandwidth are even more extreme, which is why they use MoE + FP8 + lots of nodes.
+The FP32 master copy is the term people leave out, and it is 280 GB on its own.
+**16 bytes per parameter** is the number worth memorizing; §6.1 derives it and
+the rest of the book uses it.
+
+At 80 GB per H100, 1,120 GB of static state is already 14 GPUs' worth before a
+single activation is stored — so an 8-GPU node cannot train a 70B model with
+BF16 + AdamW, and a real run uses 64 or more GPUs to buy throughput and
+activation headroom as well. *Inference* is a different budget entirely: the
+140 GB of BF16 weights plus a KV cache, which fits on 2–8 H100s depending on
+context length. For a 671B model like DeepSeek-V3 with 37B active, both budgets
+are far more extreme, which is why it needs MoE + FP8 + many nodes.
 
 ## 1.7 The failure modes
 
