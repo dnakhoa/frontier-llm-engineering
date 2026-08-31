@@ -48,7 +48,7 @@ New readers: read the [Preface](book/preface.md), then [Chapter 1](book/part-1-f
 ## What's in the box
 
 ```
-book/          26 chapters across 5 parts, plus glossary and 96 references
+book/          26 chapters across 5 parts, plus glossary and 95 references
 exercises/     26 problem sets — arithmetic drills, design problems,
                paper-reading prompts — each with a worked solution set
 labs/          19 runnable labs you can paste straight into Colab
@@ -57,8 +57,8 @@ tools/         link checker, structure checker, notebook builder, lab runner
 
 ### What is complete
 
-All 26 chapters (~115,000 words), all 26 exercise sets and all 26 worked solution
-sets (~125,000 words), the glossary, 96 references, and **all 19 labs** — every
+All 26 chapters (~116,000 words), all 26 exercise sets and all 26 worked solution
+sets (~125,000 words), the glossary, 95 references, and **all 19 labs** — every
 lab the chapters name now exists, runs, and is checked by CI on every commit.
 
 Two caveats worth stating plainly, because the book asks the same of the papers

@@ -430,3 +430,17 @@ The next chapter covers tokenization in more detail, including the BPE / Unigram
 
 **Exercises:** [Chapter 3 problem set](../../exercises/ch03.md) — includes the storage-bill arithmetic and the dedup-ordering design problem.
 **Lab:** [`lab03_dedup_and_quality`](../../labs/lab03_dedup_and_quality.py) — implement MinHash and LSH banding from scratch against a corpus with known duplicates, then discover that the quality classifier's *negative class* is where the corpus policy actually lives.
+
+---
+
+**References for this chapter**
+
+- [\[1\] DeepSeek-V3 Technical Report](../appendix/b-references.md#1-deepseek-v3) — DeepSeek-AI, December 2024. Source for the 14.8T-token pre-training corpus.
+- [\[4\] Extracting Training Data from Large Language Models](../appendix/b-references.md#4-extracting-training-data) — Carlini et al., 2021. Why verbatim memorisation makes corpus contents a privacy question, not only a quality one.
+- [\[5\] Llama 3 Herd of Models](../appendix/b-references.md#5-llama-3) — Meta AI, July 2024. Source for the 15.6T-token corpus and the data-filtering description.
+- [\[6\] Qwen3 Technical Report](../appendix/b-references.md#6-qwen3) — Qwen Team, 2025. Source for the ~36T tokens across all training stages.
+- [\[7\] MinHash](../appendix/b-references.md#7-minhash) — Broder. The signature scheme behind document-level near-duplicate detection, implemented from scratch in this chapter's lab.
+- [\[8\] Deduplicating Training Data Makes Language Models Better](../appendix/b-references.md#8-deduplicating-training-data) — Lee et al., 2022. The result that aggressive token-level dedup improves model quality.
+- [\[9\] DoReMi](../appendix/b-references.md#9-doremi) — Xie et al., 2023. Using a small proxy model to choose the data mixture.
+- [\[10\] DeepSeek-R1](../appendix/b-references.md#10-deepseek-r1) — DeepSeek-AI, January 2025. Source for the R1 data recipe referenced in the mixture comparison.
+- [See full reference list](../appendix/b-references.md)

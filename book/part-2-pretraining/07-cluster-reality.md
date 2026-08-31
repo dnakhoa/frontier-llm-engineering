@@ -1,6 +1,6 @@
 # Chapter 7: Cluster reality — topology, NCCL, fault tolerance
 
-> Reading time: ~35 minutes. By the end of this chapter you should understand the physical substrate of a frontier training run, the software that drives it, and the failure modes that define daily life for the engineers who keep it running.
+> Reading time: ~60 minutes. By the end of this chapter you should understand the physical substrate of a frontier training run, the software that drives it, and the failure modes that define daily life for the engineers who keep it running.
 
 ## 7.1 The world between the silicon and the script
 

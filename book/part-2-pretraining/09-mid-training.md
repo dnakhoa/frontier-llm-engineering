@@ -1,6 +1,6 @@
 # Chapter 9: Mid-training — long context, domain annealing
 
-> Reading time: ~30 minutes. By the end of this chapter you should understand the training stages that sit between full pre-training and SFT — long-context extension, domain annealing, and the multi-stage schedules frontier labs actually use. You should be able to read the "annealing" section of a frontier-lab technical report and not be mystified.
+> Reading time: ~40 minutes. By the end of this chapter you should understand the training stages that sit between full pre-training and SFT — long-context extension, domain annealing, and the multi-stage schedules frontier labs actually use. You should be able to read the "annealing" section of a frontier-lab technical report and not be mystified.
 
 ## 9.1 What is mid-training
 

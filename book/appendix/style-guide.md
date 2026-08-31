@@ -47,11 +47,32 @@ Every chapter has:
 
 ## Length
 
-- Long chapters: 3,000–5,000 words (Chapters 3, 6, 7, 8, 10, 13, 15, 19, 20, 22 are in this range).
-- Medium chapters: 2,000–3,000 words.
-- Short chapters: 1,500–2,000 words (the role-specific chapters in Part V).
+Measured, not aspirational — these are the current word counts, and a new
+chapter should land inside the band for its kind rather than matching a number
+someone wrote down once.
 
-Total target: ~80,000–100,000 words across 26 chapters.
+- **Long chapters: 6,497–8,791 words** (Chapters 5, 6, 7, 8, 10). The systems-heavy
+  chapters, where the arithmetic is the content.
+- **Medium chapters: 4,060–5,679 words** (Chapters 2, 3, 4, 9, 11, 12, 13, 15).
+- **Short chapters: 2,379–3,771 words** (Chapters 1, 14, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26), including the
+  role-specific chapters in Part V.
+
+Total: **~116,000 words** across 26 chapters.
+
+### Reading time
+
+Every chapter opens with a `> Reading time: ~N minutes` line. Two rules keep
+those numbers comparable to each other:
+
+- **Never imply faster than 150 words per minute.** Nobody follows dense
+  technical prose, tables and arithmetic faster than that while actually
+  understanding it. A chapter of 7,500 words cannot honestly claim 35 minutes.
+- **Slower than 150 wpm is a deliberate signal**, and the book uses it. Chapters
+  where the reader is expected to work through derivations sit near 80–110 wpm;
+  narrative chapters sit near 130–150. The current range is 76–148 wpm, and the
+  slow end is Part III/IV on purpose.
+
+Check a new chapter with `wc -w` before writing the header line.
 
 ## Code and configuration
 
