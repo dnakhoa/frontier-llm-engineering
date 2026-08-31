@@ -1,145 +1,37 @@
-# Completion plan
+# Completion plan — final status
 
-Working document. What is actually left before this book is finished, measured
-rather than estimated, and in what order.
+This began as a working document listing what was left. The list is now empty.
+Kept as a record of what "finished" was defined to mean, and of the process
+rules that turned out to matter.
 
-Last measured: 2026-08-31, at commit `1a65085`.
+Last measured: 2026-08-31, at commit `10353b9`.
 
 ---
 
-## 1. Where the book actually stands
+## 1. Where the book stands
 
-Word counts below are measured from the repository, not quoted from the README.
+Measured from the repository, not quoted from the README.
 
 | Component | Files | Words | Status |
 |---|---:|---:|---|
-| Chapters | 26 | 115,193 | **Complete** |
-| Front matter | 4 | 5,426 | **Complete** |
-| Appendix (glossary, references, style guide) | 3 | 8,697 | **Complete** |
+| Chapters | 26 | 115,763 | **Complete** |
+| Front matter | 4 | 5,451 | **Complete** |
+| Appendix (glossary, references, style guide) | 3 | 8,939 | **Complete** |
 | Exercise sets | 26 | 21,772 | **Complete** |
 | Worked solution sets | 28 | 102,767 | **Complete** |
-| **Total prose** | **87** | **253,855** | **Complete** |
-| Labs | 8 of 19 | 9,125 (lab prose) | **In progress** |
+| **Total prose** | **87** | **254,692** | **Complete** |
+| Labs | 19 of 19 | 20,880 words of lab prose, 10,061 lines | **Complete** |
 
-**All prose is written.** The remaining work is labs, and the documentation
-that describes them.
-
-### A correction to make
-
-`README.md` describes the chapters as "~135,000 words". The measured figure is
-**115,193**. The companion claim of "~125,000 words" for exercises and
-solutions is accurate (124,539). The chapter figure should be corrected to
-~115,000 — a book that insists on honest numbers should start with its own.
+Every lab the chapters name exists, runs, and is exercised by CI on each commit.
 
 ---
 
-## 2. What "half way" means
+## 2. Definition of done
 
-Eight of nineteen labs exist. Chapters and exercise sets name eleven more that
-do not, and `labs/README.md` lists them by name so no reader hits a dead link.
-
-Done: `lab03_dedup_and_quality` · `lab04_train_a_bpe_tokenizer` ·
-`lab05_attention_variants` · `lab05_moe_routing` ·
-`lab06_parallelism_memory_model` · `lab07_collective_bandwidth` ·
-`lab08_scaling_laws` · `lab11_sft_packing`
-
-Remaining, in book order:
-
-| # | Lab | Ch | What it has to demonstrate | Risk |
-|---|---|---|---|---|
-| 1 | `lab08_precision_and_stability` | 8 | FP8 per-tensor scaling destroyed by one outlier; FP32 accumulation off at 8,192 elements | Low — pure numerics, exact |
-| 2 | `lab09_rope_extension` | 9 | Perplexity vs position past the training length; PI, NTK-aware, YaRN; brief fine-tune after each | **High** — needs a real trained model and four extension schemes |
-| 3 | `lab12_reward_model` | 12 | Bradley–Terry RM from preference pairs; length bias; reward hacking made visible | Medium |
-| 4 | `lab13_ppo_minimal` | 13 | PPO clip objective, KL penalty, advantage estimation, and what each stops | **High** — RL is unstable at toy scale |
-| 5 | `lab14_dpo_from_scratch` | 14 | DPO loss, the implicit reward, beta sweep, comparison against the RM above | Medium |
-| 6 | `lab15_grpo_countdown` | 15 | GRPO group-relative advantage on a verifiable task | **High** — same RL instability |
-| 7 | `lab16_best_of_n_and_prm` | 16 | Best-of-N scaling, ORM vs PRM, where search-time compute pays | Medium |
-| 8 | `lab20_triton_fused_kernel` | 20 | Fusion arithmetic and memory traffic; a real fused op | **High** — no GPU in CI, needs an honest CPU design |
-| 9 | `lab21_checkpoint_resume` | 21 | Bit-exact resume; the RNG/optimiser/dataloader state people forget | Low |
-| 10 | `lab22_kv_cache_and_batching` | 22 | Continuous batching vs static; prefill/decode; throughput vs latency | Medium |
-| 11 | `lab23_contamination_check` | 23 | N-gram contamination detection and its false-positive rate | Low |
-
----
-
-## 3. Constraints every lab has to satisfy
-
-These are enforced by CI (`tools/run_labs.py`, `tools/check_structure.py`,
-`tools/build_notebooks.py --check`) and by the design rules in
-`labs/README.md`.
-
-- **Standard library plus torch.** No downloads, no network, no dataset fetch.
-- **CPU is the target.** GPU may accelerate; it is never required.
-- **`FLE_SMOKE_TEST=1` must shrink the lab to seconds** — this is what CI runs,
-  so *the printed narration must be true in smoke mode too*.
-- **Python 3.9 compatible** (`from __future__ import annotations` first, before
-  any other statement).
-- **Every lab must be referenced from a chapter or exercise set** or
-  `check_structure.py` fails. All eleven already are.
-- **Honest about what it demonstrates.** A lab that overclaims is worse than no
-  lab.
-
-### The process rule, learned the hard way
-
-Write the **code first, run it, then write the prose to match the output.**
-
-Writing prose first produced three confidently wrong claims in `lab03` and one
-in `lab05`, each of which survived until the output was read carefully. Where a
-claim depends on a measurement, the narration should be *derived from the
-measured value* rather than hardcoded, so it cannot drift and cannot lie in
-smoke mode.
-
-Corollary: **negative results ship.** `lab05` section 5 documents an ablation
-that cannot rank the variants it was built to compare, because recognising an
-underpowered experiment is worth more than a table that ranks noise.
-
----
-
-## 4. Sequencing
-
-Ordered to put the cheap, certain labs first and to group the three RL labs
-together, since they share machinery (a policy, a reference model, a sampler, a
-verifiable task).
-
-**Batch A — numerics and infrastructure (low risk).**
-`lab08_precision_and_stability`, `lab21_checkpoint_resume`,
-`lab23_contamination_check`. Exact, fast, no training-stability risk.
-
-**Batch B — serving and search (medium).**
-`lab22_kv_cache_and_batching`, `lab16_best_of_n_and_prm`. Both build on
-`lab05_attention_variants`, which already has a verified KV cache.
-
-**Batch C — preference learning (medium).**
-`lab12_reward_model`, then `lab14_dpo_from_scratch`, which compares against it.
-Building the RM first makes DPO's implicit reward a measurable claim.
-
-**Batch D — RL (high risk, do last).**
-`lab13_ppo_minimal`, `lab15_grpo_countdown`. Shared infrastructure, and the
-most likely to need several attempts to become stable enough to teach from.
-
-**Batch E — the two hard singletons.**
-`lab09_rope_extension` (needs a genuinely trained long-context model) and
-`lab20_triton_fused_kernel` (needs a design that is honest without a GPU).
-
-**Batch F — documentation.** Once the labs land:
-
-- `labs/README.md`: move eleven labs from "does not exist yet" into the table,
-  with real measured runtimes; relax the "~400 lines" rule, which no lab has
-  respected since `lab04`.
-- `README.md`: "Five labs" → nineteen; fix the 135,000-word claim; update the
-  "what is complete" section, which currently exists to admit the lab gap.
-- `CHANGELOG.md`: one entry per batch.
-- `book/appendix/style-guide.md`: record the labs-only first-person convention
-  (done).
-- `book/learning-paths.md`: verify every lab reference now resolves to a file.
-
----
-
-## 5. Definition of done
-
-The book is finished when all of the following pass on a clean checkout:
+All of these pass on a clean checkout:
 
 1. `python3 tools/check_links.py` — every internal link and anchor resolves.
-2. `python3 tools/check_structure.py` — no orphaned labs, every chapter has
+2. `python3 tools/check_structure.py` — no orphaned labs; every chapter has
    exercises and solutions.
 3. `python3 tools/build_notebooks.py --check` — committed notebooks match their
    sources.
@@ -148,22 +40,81 @@ The book is finished when all of the following pass on a clean checkout:
    narration true in both modes.
 6. No document claims something the repository does not contain.
 
+Item 6 was the expensive one. It is what forced the corrections in section 4.
+
 ---
 
-## 6. Open question
+## 3. What is deliberately not finished
 
-The instruction that prompted this document was to "finish the full 135k words
-write". That number matches the README's (overstated) description of the
-chapters, which are already complete — so the intent is ambiguous. Three
-readings:
+Stated here rather than left for a reader to discover.
 
-1. **Finish the book** — i.e. the eleven labs plus documentation. This plan
-   assumes this reading.
-2. **Retrofit the 26 chapters into the learning-journey voice.** Explicitly
-   declined earlier in favour of "new labs only", and it would rewrite
-   115,193 words of already-published prose.
-3. **Write ~135,000 words of genuinely new prose**, which would mean new
-   chapters, and would need a table of contents before anything else.
+- **`lab20_triton_fused_kernel` needs a GPU for part of what it teaches.**
+  Triton compiles to GPU code; CI has none. The lab opens with a table of which
+  sections are exact arithmetic, which are measured on CPU, and which require
+  hardware. The kernel source is included in full and executes where a GPU
+  exists. `num_warps`, occupancy and achieved bandwidth are named as
+  unmeasurable here, with enough reasoning to turn them into predictions.
+- **Chapters 2 and 3 have no per-chapter reference block**, unlike the other 24.
+  Adding one means choosing citations, which is authorial work rather than a
+  consistency pass, so it was left rather than guessed at.
+- **`lab05_attention_variants` section 5 is a negative result.** The ablation it
+  was built to run cannot rank the attention variants — within-variant seed
+  spread reached 72pp because the task is bimodal on whether an induction
+  circuit forms. It ships saying so, and pointing at the GQA paper for the real
+  evidence.
+- **`lab15_grpo_countdown` section 6 is also a negative result.** Oversampling
+  and dropping zero-advantage groups — the obvious fix for the problem section 5
+  establishes — costs ~1.8x the generation to reach the same accuracy at every
+  target tried. The lab explains what published dynamic-sampling schemes do
+  differently instead of implying the naive version works.
 
-Confirmation would change the plan substantially; work continues on reading 1
-until told otherwise.
+---
+
+## 4. The process rules that mattered
+
+These were learned by getting it wrong, and they are now in
+[the style guide](book/appendix/style-guide.md).
+
+**Write the code, run it, then write the prose.** Writing prose first produced
+confidently wrong claims in `lab03` (three of them), `lab05`, `lab08b`,
+`lab13` (three), `lab14`, `lab15`, `lab16`, `lab20` and `lab22`. In each case
+the text described what the mechanism *should* do and the output disagreed.
+
+**Derive printed claims from measured values.** A hardcoded number in a
+`print()` is a claim that will drift. CI runs labs under `FLE_SMOKE_TEST=1`, so
+narration has to be true at both sizes — several sections now branch on what
+was actually observed.
+
+**The most productive bug was the quietest.** In `lab03`, `DOMAINS` held
+strings that were never split into sentence lists, so `rng.sample()` sampled
+individual *characters*. Every document was garbage like `"a t a o e o w"`. The
+pipeline ran, printed plausible tables, and every number in them was noise.
+Nothing failed.
+
+**Check whether two guardrails are doing one job.** PPO's clip appeared to do
+nothing until `clip_grad_norm_(1.0)` was removed from the loop — global
+gradient clipping had been holding the trust region all along.
+
+**Ship negative results.** Four labs report an experiment that did not work.
+Recognising an underpowered ablation is worth more than a table that ranks
+noise.
+
+---
+
+## 5. Corrections this pass made to existing prose
+
+Found by building the labs the chapters described, then comparing.
+
+- `README.md` described the chapters as ~135,000 words. Measured: 115,763.
+- `lab23`'s chapter blurb said paraphrase defeats both detectors. The fuzzy
+  detector catches paraphrase completely; *translation* defeats both, and so
+  does a verbatim copy shorter than $n$.
+- `lab15`'s blurb promised "watch response length grow on its own". On a task
+  where longer reasoning is not instrumental, length *collapses* — which is the
+  sharper form of what §15.6 already argues.
+- `lab14`'s blurb and `how-to-use-this-book.md` promised a check against `trl`,
+  which is not available offline. The lab checks against the definition and an
+  independently written implementation.
+- Ten chapters had no Exercises footer, leaving the Part II labs unreachable
+  from their own chapters.
+- Seven lab pointers were unlinked plain code spans.

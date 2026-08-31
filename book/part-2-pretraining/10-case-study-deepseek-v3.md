@@ -587,6 +587,10 @@ Chapter 19 will dive into DeepSeek-R1 — the reasoning-focused post-training bu
 
 ---
 
+**Exercises:** [Chapter 10 problem set](../../exercises/ch10.md) — includes the full recipe-reconstruction problem.
+
+---
+
 **References for this chapter**
 
 - [\[1\] DeepSeek-V3 Technical Report](../appendix/b-references.md#1-deepseek-v3) — DeepSeek-AI, December 2024. The central reference for this chapter. arXiv:2412.19437.

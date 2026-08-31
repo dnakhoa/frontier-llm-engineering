@@ -212,7 +212,7 @@ This closes Part IV. The next part is about the job: reading a frontier JD and k
 ---
 
 **Exercises:** [Chapter 23 problem set](../../exercises/ch23.md) — includes a confidence-interval calculation that invalidates a real-looking result, a contamination audit design, and a judge-bias correction.
-**Lab:** `lab23_contamination_check` — build n-gram and embedding-based contamination detectors, then demonstrate the paraphrase case that defeats both.
+**Lab:** [`lab23_contamination_check`](../../labs/lab23_contamination_check.py) — build n-gram and similarity-based detectors and plant contamination three ways. Paraphrase defeats the n-gram check entirely and the fuzzy one catches it; *translation* defeats both. So does a verbatim copy shorter than $n$ — which is most of MMLU.
 
 ---
 

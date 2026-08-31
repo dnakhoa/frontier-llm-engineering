@@ -824,6 +824,11 @@ The next chapter covers distributed training — the systems side of taking any 
 
 ---
 
+**Exercises:** [Chapter 5 problem set](../../exercises/ch05.md) — includes the KV-cache arithmetic across four attention variants and the MoE-bargain problem.
+**Labs:** [`lab05_attention_variants`](../../labs/lab05_attention_variants.py) — build MHA, GQA, MQA and MLA as one module, verify cached decoding against a full forward pass, and check §5.2's arithmetic against measured bytes. [`lab05_moe_routing`](../../labs/lab05_moe_routing.py) — watch load imbalance reach a ~3× straggler tax, then fix it two ways and measure what each costs.
+
+---
+
 **References for this chapter**
 
 - [\[1\] DeepSeek-V3 Technical Report](../appendix/b-references.md#1-deepseek-v3) — The case study for MLA + DeepSeekMoE + MTP.

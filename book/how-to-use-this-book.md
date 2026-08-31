@@ -18,7 +18,7 @@ Each chapter has three layers, and you can stop at any of them.
 
 Every exercise has a worked solution in [`exercises/solutions/`](../exercises/solutions/README.md). Write your answer down *before* opening the solution — the gap between "I could have gotten that" and "I got that" is where learning lives.
 
-**Layer 3 — the labs.** Runnable Python in [`labs/`](../labs/README.md). Not toy demos: each lab implements the actual mechanism a chapter describes, small enough to run on a free Colab T4 or a laptop CPU. You train a BPE tokenizer and measure its fertility on five languages. You implement top-k MoE routing and watch expert collapse happen. You write the DPO loss from scratch and check it against `trl`. You run GRPO on a task with a verifiable reward and watch the response length grow.
+**Layer 3 — the labs.** Runnable Python in [`labs/`](../labs/README.md). Not toy demos: each lab implements the actual mechanism a chapter describes, small enough to run on a free Colab T4 or a laptop CPU. You train a BPE tokenizer and measure its fertility on five languages. You implement top-k MoE routing and watch expert collapse happen. You write the DPO loss from scratch and check it against the definition to the last decimal place. You run GRPO on a task with a verifiable reward and find out what actually decides whether response length grows or collapses.
 
 The labs are where the abstractions stop being abstractions.
 

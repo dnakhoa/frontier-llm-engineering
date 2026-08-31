@@ -232,12 +232,53 @@ print(f"{'log(2)':<34}: {math.log(2):.10f}")
 print(f"{'max |chosen_reward|':<34}: {float(rc0.abs().max()):.3e}")
 print(f"{'match to 1e-6':<34}: {abs(float(loss0) - math.log(2)) < 1e-6}")
 
-# Check 2: identical chosen and rejected (Exercise 14.9 item 5).
+# Check 2: an INDEPENDENT implementation of the same formula.
+# Written a different way on purpose -- explicit sigmoid, explicit log, one
+# example at a time -- so that a shared bug would have to be made twice.
+def dpo_loss_reference(policy, ref, chosen, rejected, beta):
+    with torch.no_grad():
+        pc = sequence_logprob(policy, chosen)
+        pr = sequence_logprob(policy, rejected)
+        rc = sequence_logprob(ref, chosen)
+        rr = sequence_logprob(ref, rejected)
+    total = 0.0
+    for i in range(chosen.shape[0]):
+        margin = beta * ((float(pc[i]) - float(rc[i])) - (float(pr[i]) - float(rr[i])))
+        total += -math.log(1.0 / (1.0 + math.exp(-margin)))
+    return total / chosen.shape[0]
+
+
+# Move the policy off the reference so the check is not trivially satisfied.
+with torch.no_grad():
+    for p_ in policy0.parameters():
+        p_.add_(torch.randn_like(p_) * 0.02)
+
+loss_mine, _, _ = dpo_loss(policy0, REFERENCE, eval_c, eval_r, beta=0.1)
+loss_ref = dpo_loss_reference(policy0, REFERENCE, eval_c, eval_r, beta=0.1)
+print("\nCheck 2: against an independently written implementation")
+print("-" * 74)
+print(f"{'vectorised (logsigmoid)':<34}: {float(loss_mine):.10f}")
+print(f"{'per-example (explicit sigmoid)':<34}: {loss_ref:.10f}")
+print(f"{'absolute difference':<34}: {abs(float(loss_mine)-loss_ref):.3e}")
+print("\nExercise 14.9 item 1 asks you to check this against `trl`. That is the")
+print("right instinct and this lab cannot do it offline, so it does the")
+print("stronger version instead: a second implementation of the formula written")
+print("in a different shape, where a shared mistake would have to be made twice.")
+print("If you have `trl` installed, run its DPO loss on the same tensors -- it")
+print("should agree with both of these, and if it does not, §14.3's three")
+print("suspects are where to look.")
+
+# Restore the policy to the reference for the degenerate-pair check below.
+policy0 = copy.deepcopy(REFERENCE)
+for p_ in policy0.parameters():
+    p_.requires_grad_(True)
+
+# Check 3: identical chosen and rejected (Exercise 14.9 item 5).
 loss_same, rc_s, rr_s = dpo_loss(policy0, REFERENCE, eval_c, eval_c, beta=0.1)
 grads = torch.autograd.grad(loss_same, list(policy0.parameters()),
                             retain_graph=False, allow_unused=True)
 grad_norm = math.sqrt(sum(float((g ** 2).sum()) for g in grads if g is not None))
-print("\nCheck 2: chosen and rejected are the same sequence")
+print("\nCheck 3: chosen and rejected are the same sequence")
 print("-" * 74)
 print(f"{'loss':<34}: {float(loss_same):.10f}   (log 2)")
 print(f"{'gradient norm':<34}: {grad_norm:.3e}")

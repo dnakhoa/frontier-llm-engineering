@@ -336,7 +336,7 @@ The next chapter is checkpointing and resumption: what happens when a run that h
 ---
 
 **Exercises:** [Chapter 20 problem set](../../exercises/ch20.md) — includes arithmetic-intensity calculations for every operation in a transformer layer, a fusion-opportunity audit, and a benchmarking-methodology critique.
-**Lab:** `lab20_triton_fused_kernel` — write a fused RMSNorm in Triton, prove numerical equivalence, benchmark it honestly against `torch.compile`, and find the shapes where it loses. Falls back to a numerics-only check on CPU.
+**Lab:** [`lab20_triton_fused_kernel`](../../labs/lab20_triton_fused_kernel.py) — compute fusion's memory-traffic ceiling, then measure that rewriting the chain by hand wins nothing while `torch.compile` recovers most of it. The Triton kernel is included in full and runs where a GPU exists; the lab is explicit about which sections need one.
 
 ---
 
