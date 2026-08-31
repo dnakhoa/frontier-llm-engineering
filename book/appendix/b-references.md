@@ -296,6 +296,11 @@ URL: https://arxiv.org/abs/2305.14314
 
 ### 29. PagedAttention and vLLM
 
+**Duplicate of [\[23\]](b-references.md#23-vllm).** PagedAttention was introduced in the
+vLLM paper, which is entry 23 above. This number is retained rather than removed
+so that every other citation number stays stable; cite
+[\[23\]](b-references.md#23-vllm) instead. Nothing in the book cites 29.
+
 ---
 
 ### 30. Transformer (Vaswani et al.)

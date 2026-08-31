@@ -1,6 +1,6 @@
 # Chapter 4: Tokenization at scale
 
-> Reading time: ~30 minutes. By the end of this chapter, you should be able to read the tokenizer config of any frontier model, predict its behavior on a piece of text, and explain why a bad tokenizer is the most expensive mistake a pre-training team can make.
+> Reading time: ~40 minutes. By the end of this chapter, you should be able to read the tokenizer config of any frontier model, predict its behavior on a piece of text, and explain why a bad tokenizer is the most expensive mistake a pre-training team can make.
 
 ## 4.1 Why tokenization matters
 

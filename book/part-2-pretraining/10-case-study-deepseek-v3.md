@@ -1,6 +1,6 @@
 # Chapter 10: Case study — DeepSeek-V3 end-to-end
 
-> Reading time: ~35 minutes. This is the first case study of the book — a full walkthrough of the pre-training (and the publicly visible post-training) of DeepSeek-V3 [\[1\]](../appendix/b-references.md#1-deepseek-v3), from the team's stated goal to the training dynamics to the $5.5M cost claim and the things the report does not actually tell us. Chapter 1 used DeepSeek-V3 as a one-paragraph spine; this is the deep dive.
+> Reading time: ~50 minutes. This is the first case study of the book — a full walkthrough of the pre-training (and the publicly visible post-training) of DeepSeek-V3 [\[1\]](../appendix/b-references.md#1-deepseek-v3), from the team's stated goal to the training dynamics to the $5.5M cost claim and the things the report does not actually tell us. Chapter 1 used DeepSeek-V3 as a one-paragraph spine; this is the deep dive.
 
 ## 10.1 The team and the goal
 
@@ -600,4 +600,6 @@ Chapter 19 will dive into DeepSeek-R1 — the reasoning-focused post-training bu
 - [\[21\] Scaling laws (Chinchilla)](../appendix/b-references.md#21-scaling-laws) — Hoffmann et al. 2022. The compute-optimal scaling reference.
 - [\[25\] AdamW](../appendix/b-references.md#25-adamw) — Loshchilov and Hutter 2019. The optimizer.
 - [\[50\] DualPipe (DeepSeek GitHub)](../appendix/b-references.md#50-dualpipe-deepseek-github) — The open-source partial release of the DualPipe pipeline schedule. https://github.com/deepseek-ai/DualPipe
+- [\[5\] Llama 3 Herd of Models](../appendix/b-references.md#5-llama-3) — Meta AI 2024. The Llama-3.1-405B comparison figures.
+- [\[8\] Deduplicating Training Data Makes Language Models Better](../appendix/b-references.md#8-deduplicating-training-data) — Lee et al. 2022. The suffix-array token-level dedup referenced in the data section.
 - [See full reference list](../appendix/b-references.md)

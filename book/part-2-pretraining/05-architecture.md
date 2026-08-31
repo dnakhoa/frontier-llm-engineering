@@ -1,6 +1,6 @@
 # Chapter 5: Architecture — dense, MoE, attention variants
 
-> Reading time: ~45 minutes. This is the deepest chapter on transformer architecture you'll find outside an industry architecture team. By the end, you should be able to read any frontier-lab technical report and understand every architectural choice in it — and to explain why MLA, DeepSeekMoE, and RoPE exist at all.
+> Reading time: ~50 minutes. This is the deepest chapter on transformer architecture you'll find outside an industry architecture team. By the end, you should be able to read any frontier-lab technical report and understand every architectural choice in it — and to explain why MLA, DeepSeekMoE, and RoPE exist at all.
 
 ## 5.1 The mental model
 

@@ -1,6 +1,6 @@
 # Chapter 8: Optimization — precision, schedules, scaling laws
 
-> Reading time: ~30 minutes. By the end of this chapter you should be able to read the optimization section of any frontier-lab technical report, know what each number means, and know which choice is a default and which is a deliberate, lab-specific decision.
+> Reading time: ~45 minutes. By the end of this chapter you should be able to read the optimization section of any frontier-lab technical report, know what each number means, and know which choice is a default and which is a deliberate, lab-specific decision.
 
 ## 8.1 The layer nobody talks about at the right altitude
 
@@ -565,4 +565,5 @@ The next chapter covers mid-training — the domain annealing, long-context, and
 - [\[44\] µTransfer / Tensor Programs (Yang et al. 2022)](../appendix/b-references.md#44-mutransfer--mup--tensor-programs-yang-et-al-2022) — arXiv:2203.03456. The zero-shot hyperparameter transfer reference.
 - [\[45\] PaLM (Chowdhery et al. 2022)](../appendix/b-references.md#45-palm-chowdhery-et-al-2022) — arXiv:2204.02311. The z-loss and Adafactor reference.
 - [\[46\] QK-norm (Henry et al. 2020)](../appendix/b-references.md#46-qk-norm-henry-et-al-2020) — arXiv:2010.04245. The attention-stability reference.
+- [\[39\] Korthikanti et al. 2022 (activation recomputation)](../appendix/b-references.md#39-korthikanti-2022-activation-recomputation) — the selective-recomputation analysis cited in §8.4.
 - [See full reference list](../appendix/b-references.md)

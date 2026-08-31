@@ -1,6 +1,6 @@
 # Chapter 6: Distributed training — TP, PP, DP, CP, EP
 
-> Reading time: ~45 minutes. By the end of this chapter you should be able to read any frontier-lab training-config dump and recognize every parallelism knob, understand why it is set the way it is, and reason about the memory and bandwidth trade-offs that drove it.
+> Reading time: ~50 minutes. By the end of this chapter you should be able to read any frontier-lab training-config dump and recognize every parallelism knob, understand why it is set the way it is, and reason about the memory and bandwidth trade-offs that drove it.
 
 ## 6.1 The mental model
 

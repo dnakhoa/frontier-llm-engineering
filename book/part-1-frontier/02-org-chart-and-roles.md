@@ -1,6 +1,6 @@
 # Chapter 2: The org chart — who actually does what
 
-> Reading time: ~20 minutes. By the end of this chapter you should be able to read a frontier-lab JD and tell what the person actually does all day.
+> Reading time: ~30 minutes. By the end of this chapter you should be able to read a frontier-lab JD and tell what the person actually does all day.
 
 ## 2.1 Why the org chart is the org chart
 
@@ -344,7 +344,15 @@ A few common JD phrases, decoded:
 
 ## 2.7 The team size and shape
 
-Different labs have different team sizes. As of 2024–2025:
+Different labs have different team sizes. As of 2024–2025.
+
+**Read the numbers below as estimates, not as published figures.** No frontier
+lab publishes the headcount of its foundation-model team. These ranges are
+assembled from paper author lists, public job postings, press reporting, and
+conference talks, and the error bars are wide — an author list counts everyone
+who contributed to one model, which is not the same as the size of a standing
+team. They are here because the *shape* is informative and the shape is robust;
+treat any single number as an order of magnitude.
 
 - **OpenAI, Anthropic, Google DeepMind**: ~100–500 people working on foundation models total, with significant overlap between teams.
 - **Meta FAIR**: ~100–200 on Llama, plus the broader FAIR org.
@@ -367,3 +375,19 @@ The next chapter starts the deep technical work, with the pre-training data pipe
 ---
 
 **Exercises:** [Chapter 2 problem set](../../exercises/ch02.md) — includes the role-mapping exercise and the on-call escalation problem.
+
+---
+
+**References for this chapter**
+
+This chapter describes how frontier labs are organised, which is the one topic in
+the book with no primary literature — labs publish models, not org charts. The
+role descriptions come from public job postings and the division of labour
+visible in technical-report author lists and contribution statements; the
+headcount ranges in §2.7 are estimates, as that section says. The reports whose
+author lists and contribution sections inform this chapter are:
+
+- [\[1\] DeepSeek-V3 Technical Report](../appendix/b-references.md#1-deepseek-v3) — DeepSeek-AI, December 2024. The contribution statement is unusually detailed about who did what.
+- [\[5\] Llama 3 Herd of Models](../appendix/b-references.md#5-llama-3) — Meta AI, July 2024. The contributions appendix is the clearest public picture of how a large frontier team divides pre-training, post-training, and infrastructure work.
+- [\[6\] Qwen3 Technical Report](../appendix/b-references.md#6-qwen3) — Qwen Team, 2025.
+- [See full reference list](../appendix/b-references.md)
