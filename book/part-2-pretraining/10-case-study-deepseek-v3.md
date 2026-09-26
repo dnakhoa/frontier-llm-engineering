@@ -252,7 +252,7 @@ In the real V3, the per-expert FFNs are stored as **block-sparse 3D tensors** of
 
 ### 10.4.3 First-K-dense, MoE-later
 
-The report describes a structural choice the team found important: the **first transformer layer is dense**, not MoE. The reasoning is that the first layer is doing shallow pattern matching (BPE merging, surface features) where dense routing is better; MoE routing is more useful in deeper layers where the representations are more abstract. The exact number of dense layers is not published, but later presentations suggest 1. This "first-K-dense, rest-MoE" pattern is now used in Qwen3 and other MoE models — a small detail with a noticeable quality impact.
+The report describes a structural choice the team found important: the **first transformer layer is dense**, not MoE. The reasoning is that the first layer is doing shallow pattern matching (BPE merging, surface features) where dense routing is better; MoE routing is more useful in deeper layers where the representations are more abstract. The exact number of dense layers is not published, but later presentations suggest 1. This "first-K-dense, rest-MoE" pattern is used in other MoE models, though not in Qwen3-235B-A22B, whose 94 layers are all MoE ([fact sheet](../appendix/fact-sheets/qwen3.md#architecture-qwen3-235b-a22b)) — a small detail with a noticeable quality impact.
 
 ## 10.5 Multi-token prediction (MTP)
 
@@ -549,7 +549,7 @@ Four specific contributions, each of which has propagated through the field [\[1
 
 1. **FP8 training at scale.** V3 was the first frontier model to be trained end-to-end in FP8, with per-block scaling and the E4M3 / E5M2 split between forward and activation-gradient matmuls. The custom CUTLASS / Triton kernels for FP8 are the engineering substrate; the recipe is the contribution. Subsequent frontier runs (Llama-3.1 onward, the Qwen3 series, the Kimi K2 series) have all adopted FP8 with similar fine-grained scaling.
 
-2. **Auxiliary-loss-free MoE load balancing.** The bias-based mechanism is a clean alternative to the standard auxiliary loss. The argument — that the auxiliary loss directly competes with the main loss, while the bias-based mechanism does not — is theoretically and empirically supported. The mechanism is now used in Qwen3, in the Mistral large model, and in several other MoE designs.
+2. **Auxiliary-loss-free MoE load balancing.** The bias-based mechanism is a clean alternative to the standard auxiliary loss. The argument — that the auxiliary loss directly competes with the main loss, while the bias-based mechanism does not — is theoretically and empirically supported. The mechanism is now used in the Mistral large model and in several other MoE designs. Qwen3 is not one of them: it uses a global-batch load-balancing loss ([fact sheet](../appendix/fact-sheets/qwen3.md#architecture-qwen3-235b-a22b)).
 
 3. **Multi-token prediction (MTP).** The 2-token prediction head is a small but real training-time regularizer. The R1 distillation pipeline reuses the MTP mechanism to produce reasoning traces, which is the more impactful extension.
 

@@ -31,7 +31,7 @@ Frontier labs do not just use Common Crawl directly. They typically also crawl a
 - Code-hosting platforms (GitHub, GitLab).
 - Academic sources (arXiv, PubMed, Semantic Scholar).
 
-The volume is enormous. The DeepSeek-V3 paper [\[1\]](../appendix/b-references.md#1-deepseek-v3) reports their pre-training corpus as 14.8T tokens. The Llama-3 paper [\[5\]](../appendix/b-references.md#5-llama-3) reports 15.6T tokens. The Qwen3 paper [\[6\]](../appendix/b-references.md#6-qwen3) reports ~36T tokens (across all stages including pre-training, mid-training, and post-training data). The web is the dominant source for all of these.
+The volume is enormous. The DeepSeek-V3 paper [\[1\]](../appendix/b-references.md#1-deepseek-v3) reports their pre-training corpus as 14.8T tokens. The Llama-3 paper [\[5\]](../appendix/b-references.md#5-llama-3) reports 15.6T tokens. The Qwen3 paper [\[6\]](../appendix/b-references.md#6-qwen3) reports about 36T pre-training tokens, covering 119 languages and dialects ([fact sheet](../appendix/fact-sheets/qwen3.md#pre-training-data)). The web is the dominant source for all of these.
 
 ### 3.2.2 Code
 
@@ -81,7 +81,7 @@ Multilingual sources include:
 - **Country-specific crawls** (e.g., Chinese web via a different Common Crawl mirror).
 - **Native-language code repositories** (Chinese GitHub, Japanese Qiita).
 
-The data mix is heavily English-weighted even at multilingual-focused labs. DeepSeek-V3's reported mix is roughly 60% English, 30% Chinese, 10% other. Qwen3 is closer to 50/50 English/Chinese. The exact ratios are trade secrets; what is published is the directional split.
+The data mix is heavily English-weighted even at multilingual-focused labs. DeepSeek-V3's reported mix is roughly 60% English, 30% Chinese, 10% other. Qwen3 publishes no language split at all, only that its corpus covers 119 languages and dialects ([fact sheet](../appendix/fact-sheets/qwen3.md#pre-training-data)). The exact ratios are trade secrets; at most, a lab publishes the directional split.
 
 ### 3.2.6 Math, instruction data, and synthetic data
 
@@ -369,8 +369,8 @@ Concrete numbers, where the labs have published them:
 - Detailed contamination check against 32 benchmarks.
 
 **Qwen3 [\[6\]](../appendix/b-references.md#6-qwen3):**
-- ~36T total tokens across all training stages.
-- Data mix: ~50/50 English/Chinese, with code, math, and multilingual.
+- ~36T pre-training tokens over three stages, in 119 languages and dialects; no language split is published ([fact sheet](../appendix/fact-sheets/qwen3.md#pre-training-data)).
+- Data mix: web, code, STEM, reasoning, books, multilingual and synthetic data, with trillions of tokens of PDF text extracted by Qwen2.5-VL.
 - Custom quality classifier.
 - Aggressive dedup.
 
@@ -440,7 +440,7 @@ The next chapter covers tokenization in more detail, including the BPE / Unigram
 - [\[1\] DeepSeek-V3 Technical Report](../appendix/b-references.md#1-deepseek-v3) — DeepSeek-AI, December 2024. Source for the 14.8T-token pre-training corpus.
 - [\[4\] Extracting Training Data from Large Language Models](../appendix/b-references.md#4-extracting-training-data) — Carlini et al., 2021. Why verbatim memorisation makes corpus contents a privacy question, not only a quality one.
 - [\[5\] Llama 3 Herd of Models](../appendix/b-references.md#5-llama-3) — Meta AI, July 2024. Source for the 15.6T-token corpus and the data-filtering description.
-- [\[6\] Qwen3 Technical Report](../appendix/b-references.md#6-qwen3) — Qwen Team, 2025. Source for the ~36T tokens across all training stages.
+- [\[6\] Qwen3 Technical Report](../appendix/b-references.md#6-qwen3) — Qwen Team, 2025. Source for the ~36T-token, 119-language pre-training corpus.
 - [\[7\] MinHash](../appendix/b-references.md#7-minhash) — Broder. The signature scheme behind document-level near-duplicate detection, implemented from scratch in this chapter's lab.
 - [\[8\] Deduplicating Training Data Makes Language Models Better](../appendix/b-references.md#8-deduplicating-training-data) — Lee et al., 2022. The result that aggressive token-level dedup improves model quality.
 - [\[9\] DoReMi](../appendix/b-references.md#9-doremi) — Xie et al., 2023. Using a small proxy model to choose the data mixture.
