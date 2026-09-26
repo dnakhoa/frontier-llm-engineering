@@ -31,6 +31,14 @@ Checked against the sources: 2026-09-26.
 | Context beyond 32K | YaRN plus Dual Chunk Attention give "a four-fold increase in sequence length capacity during inference" | [Qwen3] §3.2 |
 | Advertised context, Qwen3-235B-A22B | 128K | [Qwen3] Table 2 |
 | Learning rate and batch size | Predicted per model from scaling laws over the three stages; the values are not published | [Qwen3] §3.2 |
+| Optimizer and other training settings | Not published. The report names no optimizer and gives no warmup, LR floor, weight decay, gradient-clipping threshold or training precision. The only schedule detail is that S2 "accelerate[s] the learning rate decay" | [Qwen3] §3.2 |
+| Training hardware and cluster | Not published. The report describes no training GPUs, cluster, site or parallelism layout; "GPU" appears only as GPU-hours, comparing distillation with RL | [Qwen3] §3; §4, §4.7, Table 21 |
+
+## Post-training
+
+| Fact | Value | Source |
+|---|---|---|
+| Distillation direction | Strong-to-weak: knowledge from larger teacher models is distilled **into** the lightweight models, 5 dense (0.6B, 1.7B, 4B, 8B, 14B) and Qwen3-30B-A3B, off-policy then on-policy | [Qwen3] §4, §4.5 |
 
 ## Architecture (Qwen3-235B-A22B)
 
