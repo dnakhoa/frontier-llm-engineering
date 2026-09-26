@@ -20,8 +20,10 @@ Rules:
      book said, what the source says, where it appeared, and the fixed-in
      version.
   7. Every fact-sheet row (a table headed `| Fact | Value | Source |`) has a
-     pinpoint citation: a section (§), a table or figure number, or `@commit`
-     for a published file.
+     pinpoint citation: a section (§), a table or figure number, a named
+     subsection of a Nature article's unnumbered Main or Methods
+     (`Methods ‘GRPO’`), or
+     `@commit` for a published file.
 
 Rules 6 and 7 check that the fields exist, not that they are true. Whether
 a fact row matches its source is the citation check, which a person or agent
@@ -44,7 +46,12 @@ MONTHS = "January|February|March|April|May|June|July|August|September|October|No
 STAMP_RE = re.compile(rf"^\*Current as of (?:{MONTHS}|early|mid|late) 20\d\d\.\*$", re.M)
 STAMP_WINDOW = 15  # the stamp must sit within this many lines of the top
 ERRATA_FIELDS = ("The book said", "The source says", "Where", "Fixed in")
-PINPOINT_RE = re.compile(r"§\s*\d|\bTable\s+\d|\bFig(?:ure|\.)?\s*\d|@[0-9a-f]{7,}")
+# A Nature article's Main and Methods have unnumbered, named subsections, so
+# `Methods ‘Reward design’` (the name in quotes) is a pinpoint; bare "Methods" is not.
+PINPOINT_RE = re.compile(
+    r"§\s*\d|\bTable\s+\d|\bFig(?:ure|\.)?\s*\d|@[0-9a-f]{7,}"
+    r"|\b(?:Main|Methods),?\s+[‘\'\"“]\w"
+)
 
 
 def chapter_numbers(root: Path) -> dict[str, Path]:

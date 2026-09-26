@@ -119,6 +119,19 @@ class StructureChecks(unittest.TestCase):
         code, out = run(self.root)
         self.assertEqual(code, 0, out)
 
+    def test_named_methods_subsection_is_a_pinpoint(self) -> None:
+        row = "| KL coefficient | 0.001 | [Nature] Methods ‘Training details’ |\n"
+        make_book(self.root, facts=FACTS_OK + row)
+        code, out = run(self.root)
+        self.assertEqual(code, 0, out)
+
+    def test_bare_methods_is_not_a_pinpoint(self) -> None:
+        row = "| KL coefficient | 0.001 | [Nature] Methods |\n"
+        make_book(self.root, facts=FACTS_OK + row)
+        code, out = run(self.root)
+        self.assertEqual(code, 1)
+        self.assertIn("KL coefficient", out)
+
     # --- currency stamps ----------------------------------------------------------
 
     def test_chapter_without_currency_stamp_fails(self) -> None:
