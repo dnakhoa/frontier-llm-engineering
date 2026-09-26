@@ -1,0 +1,3 @@
+# Model facts live once, in fact sheets, and chapters link to them
+
+The 2026-09 audit found the same never-true DeepSeek-V3 parallelism layout in four chapters, because each chapter restated it from memory rather than from the report. Facts about a specific model (layout, layer count, data mix, schedule, precision) now live in one fact sheet per model in the appendix, each with a pinpoint citation (report plus section, table or page). Chapters link to the fact, and where a calculation needs the number inline they cite the fact-sheet row. Two alternatives were rejected: keeping facts inline and adding a duplicate-detecting check (the check can only catch disagreement, and four copies can agree and all be wrong), and a one-off fix (the next edit repeats the problem).

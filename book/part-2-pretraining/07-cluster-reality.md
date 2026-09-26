@@ -2,6 +2,8 @@
 
 > Reading time: ~60 minutes. By the end of this chapter you should understand the physical substrate of a frontier training run, the software that drives it, and the failure modes that define daily life for the engineers who keep it running.
 
+*Current as of early 2025.*
+
 ## 7.1 The world between the silicon and the script
 
 Chapter 6 covered the *logical* structure of a distributed training run: tensor parallelism, pipeline parallelism, data parallelism, expert parallelism, and the collectives that tie them together. That chapter assumed the network and the nodes were there. This chapter is about what is actually there.
@@ -10,7 +12,7 @@ A frontier training run is, at its physical core, 2,000 to 100,000 GPUs, the wir
 
 The DeepSeek-V3 pre-training run [\[1\]](../appendix/b-references.md#1-deepseek-v3) used 2,048 NVIDIA H800 GPUs connected in 256 nodes of 8. The Llama-3 405B pre-training run [\[5\]](../appendix/b-references.md#5-llama-3) used roughly 16,000 H100s. The xAI Colossus cluster [\[40\]](../appendix/b-references.md#40-xai-colossus) reached 100,000 H100s in a single site in late 2024. Meta has announced plans for a 1.3M-H100-equivalent cluster. Anthropic's Project Rainier [\[41\]](../appendix/b-references.md#41-aws-trainium-2--project-rainier) moves away from NVIDIA entirely, onto AWS Trainium 2, with the cluster itself numbering in the hundreds of thousands of accelerators. We are well past the era when "a frontier run" fits in a single rack, or a single room, or even a single building. It is a piece of civil infrastructure, and the engineering practice around it has more in common with operating a power plant than with writing a script.
 
-This chapter walks that infrastructure, top to bottom, with the failures and the recovery loop that the public papers mostly leave out. We anchor on DeepSeek-V3's 2,048-GPU layout [\[1\]](../appendix/b-references.md#1-deepseek-v3), the xAI Colossus numbers [\[40\]](../appendix/b-references.md#40-xai-colossus), Llama-3's training infrastructure [\[5\]](../appendix/b-references.md#5-llama-3), and the Qwen3 / Panjin cluster for the Chinese-side view [\[6\]](../appendix/b-references.md#6-qwen3).
+This chapter walks that infrastructure, top to bottom, with the failures and the recovery loop that the public papers mostly leave out. We anchor on DeepSeek-V3's 2,048-GPU layout [\[1\]](../appendix/b-references.md#1-deepseek-v3), the xAI Colossus numbers [\[40\]](../appendix/b-references.md#40-xai-colossus), and Llama-3's training infrastructure [\[5\]](../appendix/b-references.md#5-llama-3). The Qwen3 report describes no hardware at all ([fact sheet](../appendix/fact-sheets/qwen3.md#pre-training-stages)), so Qwen3 does not appear here.
 
 ## 7.2 The cluster as a system
 
@@ -20,17 +22,17 @@ A frontier cluster is a hierarchy, and at every level of the hierarchy the bandw
 
 **The rack.** A rack holds 4 to 8 nodes (so 32 to 64 GPUs). The nodes in a rack share one or two leaf InfiniBand switches. Within a rack, every GPU can reach every other GPU at InfiniBand speed (typically 400 Gb/s NDR per port for H100-era clusters). Between GPUs in the same rack but different nodes, the bandwidth is lower than intra-node NVLink — typically by a factor of 5 to 10 — but it is still direct, with a single switch hop. The rack is the level at which a tensor-parallel group typically lives: one TP group = one node (8 GPUs), because the all-reduce inside a tensor-parallel layer is bandwidth-bound and you want it on the fastest available links.
 
-**The super-pod / pod.** A super-pod is a collection of racks that share a non-blocking (or near-non-blocking) network fabric. The deepseek-v3 paper refers to this as a "pod" of 16 nodes (128 GPUs) [\[1\]](../appendix/b-references.md#1-deepseek-v3). The xAI Memphis cluster is a single super-pod of 100,000 H100s, but it is built from many smaller sub-pods internally [\[40\]](../appendix/b-references.md#40-xai-colossus). The classic InfiniBand "7-rail topology" — which we cover in §7.3 — is the canonical super-pod design.
+**The super-pod / pod.** A super-pod is a collection of racks that share a non-blocking (or near-non-blocking) network fabric. The xAI Memphis cluster is a single super-pod of 100,000 H100s, but it is built from many smaller sub-pods internally [\[40\]](../appendix/b-references.md#40-xai-colossus). The classic InfiniBand "7-rail topology" — which we cover in §7.3 — is the canonical super-pod design.
 
-**The cluster.** The full site. For DeepSeek-V3, the cluster is 256 nodes = 2,048 GPUs in a single InfiniBand fabric [\[1\]](../appendix/b-references.md#1-deepseek-v3). For Llama-3 405B, the cluster is reported as 16,000 H100s in Meta's "two-by-two" data-center fabric [\[5\]](../appendix/b-references.md#5-llama-3). For Colossus, the cluster is 100,000 H100s in a single 150 MW building [\[40\]](../appendix/b-references.md#40-xai-colossus). For the announced Meta "1.3M H100 equivalent" supercluster, the cluster is multiple buildings, multiple substations, and multiple gigawatts.
+**The cluster.** The full site. For DeepSeek-V3, the cluster is 256 nodes = 2,048 GPUs in a single InfiniBand fabric [\[1\]](../appendix/b-references.md#1-deepseek-v3). For Llama-3 405B, the run used up to 16,000 H100s of a 24,000-GPU RoCE cluster, built as a three-layer Clos network of 3,072-GPU pods [\[5\]](../appendix/b-references.md#5-llama-3) ([fact sheet](../appendix/fact-sheets/llama-3.md#infrastructure-and-parallelism)). For Colossus, the cluster is 100,000 H100s in a single 150 MW building [\[40\]](../appendix/b-references.md#40-xai-colossus). For the announced Meta "1.3M H100 equivalent" supercluster, the cluster is multiple buildings, multiple substations, and multiple gigawatts.
 
 **The data center.** A cluster typically lives in a single data center, with its own substation, its own cooling plant, and its own network connection to the rest of the world. Larger labs have multiple data centers and stitch them together with long-haul fiber, but most pre-training runs are run inside a single data center because the latency between data centers is too high for synchronous collective communication.
 
-The DeepSeek-V3 paper's hardware block is the cleanest public description of this hierarchy for a frontier run [\[1\]](../appendix/b-references.md#1-deepseek-v3):
+The DeepSeek-V3 paper's hardware description is short, and typical of what frontier runs publish [\[1\]](../appendix/b-references.md#1-deepseek-v3):
 
-> *"Training is conducted on a cluster of 2048 NVIDIA H800 GPUs. Each node contains 8 GPUs connected via NVLink and NVSwitch within the node, with a total of 900 GB/s NVLink bandwidth per GPU. The 256 nodes are connected via InfiniBand, with each GPU having a 400 Gb/s NIC."*
+> *"DeepSeek-V3 is trained on a cluster equipped with 2048 NVIDIA H800 GPUs. Each node in the H800 cluster contains 8 GPUs connected by NVLink and NVSwitch within nodes."* (§3.1)
 
-That paragraph is the entire physical description of the cluster in the paper, and it is also the entire physical description most frontier runs bother to publish. Everything else in this chapter is the part that does not get published.
+The report's one other hardware number, in §3.2.2, is the one that matters: on this cluster, NVLink offers **160 GB/s**, about **3.2×** InfiniBand's 50 GB/s ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#cluster-and-interconnect)). The H800 is an export-compliant H100 with cut-down NVLink, so the intra/inter-node gap is far smaller than the ~18× of the H100 figures below. Everything else in this chapter is the part that does not get published.
 
 ## 7.3 The network topology
 
@@ -46,7 +48,7 @@ The bandwidth hierarchy inside a frontier cluster is brutal and is the single mo
 
 The intra-node NVLink is roughly 18× faster than the inter-node InfiniBand per GPU. This is the number every parallelism choice has to respect. It is why tensor parallelism lives inside a node (the all-reduce inside a TP layer is bandwidth-bound and you do not want to put it on a 18×-slower link), and why pipeline and data parallelism live across nodes (they are less bandwidth-bound and more latency-tolerant).
 
-The 18× ratio is the reason DeepSeek-V3 places expert parallelism on the intra-node NVLink: the all-to-all collective inside the MoE block is large and bandwidth-hungry, and you want it on the fastest links [\[1\]](../appendix/b-references.md#1-deepseek-v3). It is the reason Qwen3 (and Llama-3) place tensor parallelism inside a node and pipeline parallelism across nodes. It is the reason "NVLink-only" research prototypes (e.g., a 16-GPU workstation with two NVLink-connected DGX nodes) often do not predict real cluster behavior — the 18× cliff is invisible until you try to go across it.
+The ratio is also why the MoE all-to-all *usually* stays inside a node: it is large and bandwidth-hungry, and you want it on the fastest links. DeepSeek-V3 is the instructive exception [\[1\]](../appendix/b-references.md#1-deepseek-v3). Its expert parallelism spans 8 nodes, on a cluster whose NVLink-to-InfiniBand gap is about 3.2×, not 18×, because the H800's NVLink is cut down ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#cluster-and-interconnect)). DeepSeek hid the cross-node all-to-all behind compute and capped each token at 4 nodes. It is the reason Llama-3 orders its parallelism [TP, CP, PP, DP], with the innermost, most bandwidth-hungry dimension "usually constrained to within the same server" [\[5\]](../appendix/b-references.md#5-llama-3) ([fact sheet](../appendix/fact-sheets/llama-3.md#infrastructure-and-parallelism)). It is the reason "NVLink-only" research prototypes (e.g., a 16-GPU workstation with two NVLink-connected DGX nodes) often do not predict real cluster behavior — the 18× cliff is invisible until you try to go across it.
 
 ### 7.3.1 NVLink and NVSwitch
 
@@ -85,7 +87,7 @@ For larger super-pods, leaves are aggregated into a spine layer (a 2-tier fat-tr
 
 The alternative to InfiniBand is RDMA over Converged Ethernet (RoCE), most commonly using Spectrum-X switches from NVIDIA. RoCE v2 runs RDMA over a standard Ethernet L3 network and is significantly cheaper to deploy at scale than InfiniBand. The bandwidth and latency are comparable at the link level, but RoCE is more sensitive to network configuration (PFC, ECN, congestion control) and the operational practice is less mature.
 
-The Llama-3 paper [\[5\]](../appendix/b-references.md#5-llama-3) reports that Meta's 16k-H100 cluster uses Ethernet (RoCE), not InfiniBand, with a customized Arista 7800R3 fabric. This is a deliberate trade: Ethernet is cheaper and easier to source, at the cost of more tuning work to get the same lossless RDMA behavior. Most hyperscaler-scale clusters are now Ethernet/RoCE; most "research cluster" purchases for labs that can afford it are still InfiniBand because the operational risk is lower. Anthropic's Project Rainier uses a custom interconnect (NeuronLink) because the accelerator itself is non-NVIDIA [\[41\]](../appendix/b-references.md#41-aws-trainium-2--project-rainier).
+The Llama-3 paper [\[5\]](../appendix/b-references.md#5-llama-3) reports that Meta's 16k-H100 cluster uses Ethernet (RoCE), not InfiniBand, on a fabric built from Arista 7800 and Minipack2 switches ([fact sheet](../appendix/fact-sheets/llama-3.md#infrastructure-and-parallelism)). This is a deliberate trade: Ethernet is cheaper and easier to source, at the cost of more tuning work to get the same lossless RDMA behavior. Most hyperscaler-scale clusters are now Ethernet/RoCE; most "research cluster" purchases for labs that can afford it are still InfiniBand because the operational risk is lower. Anthropic's Project Rainier uses a custom interconnect (NeuronLink) because the accelerator itself is non-NVIDIA [\[41\]](../appendix/b-references.md#41-aws-trainium-2--project-rainier).
 
 ## 7.4 Topology-aware placement
 
@@ -93,14 +95,14 @@ Once the physical topology is fixed, the placement of the logical parallelism gr
 
 NCCL's topology detection is the heart of the system. When NCCL initializes, it queries the system's PCIe topology (via `libibverbs` and the kernel's NUMA / sysfs tree), enumerates the GPUs and HCAs, and builds a graph of the available communication paths. For a 2-GPU all-reduce, it picks the fastest path (usually NVLink for intra-node, IB for inter-node). For an N-GPU all-reduce, it picks an algorithm (ring, tree, double-binary-tree) and a path through that algorithm that minimizes total time. The detection is automatic, but it is sensitive to the environment: an HCA that is misconfigured (wrong `NCCL_IB_HCA` setting, wrong subnet) is invisible to NCCL and degrades performance silently.
 
-The DeepSeek-V3 parallelism layout [\[1\]](../appendix/b-references.md#1-deepseek-v3) is a clean example of rail-optimized placement:
+The DeepSeek-V3 parallelism layout [\[1\]](../appendix/b-references.md#1-deepseek-v3) shows placement *co-designed* with the network rather than simply fitted to it ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#parallelism-layout)):
 
-- **TP = 1** for MoE layers (experts are already sharded by EP).
-- **EP = 8** (one node) for the MoE experts, with the all-to-all on intra-node NVLink.
-- **PP = 4** across 4 nodes, with each pipeline stage owning 15 of the 60 transformer layers.
-- **DP = 64** (256 nodes × 8 GPUs / (PP × EP) = 2,048 / 32 = 64).
+- **No TP** anywhere.
+- **EP = 64, spanning 8 nodes**, so the MoE all-to-all crosses InfiniBand.
+- **PP = 16**, over the 61 transformer layers.
+- **ZeRO-1 data parallelism** over the remaining ranks.
 
-The 4 pipeline stages are placed on 4 adjacent nodes within the same super-pod, so the point-to-point activations that flow between pipeline stages (4 sends and 4 receives per micro-batch, ~10–50 MB each at typical sequence lengths) stay within the high-bandwidth intra-super-pod fabric. The 64-way data parallel is spread across the rest of the cluster; the data-parallel all-reduce of gradients is large (gigabytes at 671B parameters) and benefits from the 7-rail topology that gives every GPU a direct path to the GPU at the same rail index in any other node.
+The rail-aware part is in how the all-to-all moves. A token bound for experts on another node first crosses InfiniBand to the GPU with the **same in-node index** on the target node, which is the same rail. Then it is forwarded over NVLink to the GPU that holds its expert. Each token may target at most 4 nodes, so InfiniBand traffic is bounded while NVLink absorbs the fan-out. DeepSeek report that this lets the two links run fully overlapped. The layout only works because the kernel, the routing rule and the topology were designed together. The report does not publish its physical rank-to-node placement; anything more specific than the above would be a guess.
 
 A real cluster bring-up script for a frontier run looks like this (highly simplified from public Megatron / DeepSpeed launch scripts):
 
@@ -228,7 +230,7 @@ The environment variables in §7.4 are the ones every frontier engineer has memo
 - `NCCL_TIMEOUT` — watchdog timeout in seconds. Default 1800 (30 min); can be lowered for faster failure detection.
 - `NCCL_ASYNC_ERROR_HANDLING=1` — turn on async error handling. Without it, an NCCL error in one rank is reported asynchronously and can be very hard to attribute to a node.
 
-The DeepSeek-V3 paper does not publish its full NCCL environment [\[1\]](../appendix/b-references.md#1-deepseek-v3), but public DeepSeek code (the `DualPipe` and `DeepEP` repositories) and talks confirm the high-bandwidth / rail-optimized settings above. The Llama-3 paper [\[5\]](../appendix/b-references.md#5-llama-3) explicitly discusses the cluster tuning: Meta uses a custom NCCL plugin ("nccl-core" plugins) and a tuned topology for its RoCE fabric.
+The DeepSeek-V3 paper does not publish its NCCL environment [\[1\]](../appendix/b-references.md#1-deepseek-v3), and neither of DeepSeek's public repositories fills the gap: `DualPipe` is a pipeline-scheduling library and `DeepEP` a communication library, and neither sets any of the variables above (`deepseek-ai/DualPipe` @030ce43, `deepseek-ai/DeepEP` @a56d615). The Llama-3 paper [\[5\]](../appendix/b-references.md#5-llama-3) explicitly discusses the cluster tuning: Meta runs NCCLX, its own fork of NCCL, tuned for the higher latency of its RoCE fabric ([fact sheet](../appendix/fact-sheets/llama-3.md#infrastructure-and-parallelism)).
 
 ## 7.6 Common NCCL failures
 
@@ -243,7 +245,7 @@ The most common causes, in rough order of frequency at frontier scale:
 5. **CPU-side bug in the training loop.** A rank enters a state where it is not posting NCCL calls (e.g., stuck in a Python loop). The other ranks block on a `recv` from it.
 6. **Filesystem stall.** A checkpointing operation blocks for minutes, during which the training loop is not posting collectives. Other ranks hang in the next all-reduce.
 
-The recovery for a hang is automatic in a well-engineered run: a watchdog timer (`NCCL_TIMEOUT` plus a Python-level watchdog) fires, the run is killed, the latest checkpoint is loaded, and the run resumes. The DeepSeek-V3 paper reports that their run "suffered only a few unexpected interruptions" [\[1\]](../appendix/b-references.md#1-deepseek-v3) — public statements of MTBF for frontier runs are rare and tend to be understated, but the engineering practice is well understood.
+The recovery for a hang is automatic in a well-engineered run: a watchdog timer (`NCCL_TIMEOUT` plus a Python-level watchdog) fires, the run is killed, the latest checkpoint is loaded, and the run resumes. Public statements of interruption rates for frontier runs are rare. The DeepSeek-V3 report gives none; the Llama-3 report is the exception (§7.7.1). The engineering practice, though, is well understood.
 
 ### 7.6.1 Debugging NCCL
 
@@ -274,13 +276,13 @@ The three main categories:
 
 **HBM errors.** HBM3 memory has hardware ECC. Single-bit errors are corrected transparently; double-bit errors are detected and reported as ECC errors. The rate of single-bit errors is high enough that a 1,000-GPU cluster sees a few per day. A double-bit error in GPU memory is the failure that takes the GPU out of the run. NVIDIA's `nvidia-smi -q -d ECC` reports the running counts; the convention is to set a threshold (e.g., "any double-bit error in the last 24 hours, drain the GPU").
 
-**NVLink errors.** Similar to HBM: a link can have a correctable error (CRC retry, transparent) or an uncorrectable error (the link goes down and the GPU is effectively cut off from its peers). The DeepSeek-V3 paper notes that NVLink errors are a non-trivial fraction of their failures [\[1\]](../appendix/b-references.md#1-deepseek-v3); the Llama-3 paper does not break this out but reports similar patterns.
+**NVLink errors.** Similar to HBM: a link can have a correctable error (CRC retry, transparent) or an uncorrectable error (the link goes down and the GPU is effectively cut off from its peers). Neither the DeepSeek-V3 report nor the Llama-3 report counts NVLink errors separately. The Llama-3 report does describe how they show up: NVLink failures "often manifest as stalled load/store operations" inside CUDA kernels, with no clear error code, which its collective library catches by timing out (§3.3.4) [\[5\]](../appendix/b-references.md#5-llama-3).
 
 **PCIe errors.** The most catastrophic. A PCIe error can take the entire host down, dropping all 8 GPUs at once. PCIe errors are often the result of bad host hardware (a failing riser, a marginal CPU) and require a full node reboot to recover.
 
 ### 7.7.1 The MTBF math
 
-Mean Time Between Failures for a GPU is published by NVIDIA in the range of 50,000–100,000 hours of useful life for H100. For a 2,048-GPU cluster at MTBF 100,000 hours, the expected time to the next GPU failure is $100{,}000 / 2{,}048 = 49$ hours, or roughly 2 days. In practice, the MTBF of an H100 at frontier workloads is closer to 8–24 hours because the workload is harder than the spec (sustained high temperature, high current, tight power envelopes) and the cluster is operated continuously. The Llama-3 paper reports an MTBF of "a few hours" at peak training load [\[5\]](../appendix/b-references.md#5-llama-3); the DeepSeek team has stated publicly that they target 2–4 hour MTBF and design the run around it.
+Mean Time Between Failures for a GPU is published by NVIDIA in the range of 50,000–100,000 hours of useful life for H100. For a 2,048-GPU cluster at MTBF 100,000 hours, the expected time to the next GPU failure is $100{,}000 / 2{,}048 = 49$ hours, or roughly 2 days. In practice, what matters is the interruption rate of the whole job, which adds every non-GPU component on top. The Llama-3 paper [\[5\]](../appendix/b-references.md#5-llama-3) gives the best public measurement: on 16K H100s, 419 unexpected interruptions in 54 days, one every ~3.1 hours, or about 51,000 GPU-hours per interruption from all causes ([fact sheet](../appendix/fact-sheets/llama-3.md#reliability)). The DeepSeek-V3 report gives no interruption count or MTBF ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#optimizer-and-schedule)).
 
 The 5-failures-per-day reality: a 2,000-GPU cluster at 8-hour MTBF loses on average 1 GPU every 8 hours. Across 60 days, that is 180 GPU-hours of failure, plus the recovery time. With 8 GPUs per node and 1 GPU's worth of node-level disruption per failure (the other 7 GPUs of the node are blocked), the effective loss is closer to 1,440 GPU-hours over 60 days. On a 2,048-GPU run, that is ~1.2% of the total compute. Not catastrophic, but non-trivial, and the cost of the failure is multiplied by the recovery time (loading a 1.2 TB checkpoint, restarting NCCL, re-establishing the dataloader position — typically 5–15 minutes).
 
@@ -299,7 +301,7 @@ The mitigation:
 - **Hardware ECC.** HBM ECC catches single-bit errors transparently and reports double-bit errors. NVIDIA's `nvidia-smi -q -d ECC` reports counts.
 - **Process isolation.** Run training under a process that can detect memory corruption (e.g., with `cuda-memcheck` periodically).
 
-DeepSeek has stated publicly that they encountered silent corruption during the V3 run and recovered by rolling back to a clean checkpoint [\[1\]](../appendix/b-references.md#1-deepseek-v3). The Llama-3 paper [\[5\]](../appendix/b-references.md#5-llama-3) discusses the issue in the context of their MTBF analysis but does not give numbers. Frontier labs treat silent corruption as a first-class failure mode and run periodic checksum checks on the gradient buffer as a default.
+The DeepSeek-V3 report does not mention silent corruption, and it says the opposite of a rollback: "we did not experience any irrecoverable loss spikes or perform any rollbacks" [\[1\]](../appendix/b-references.md#1-deepseek-v3) ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#optimizer-and-schedule)). The Llama-3 paper [\[5\]](../appendix/b-references.md#5-llama-3) counts it: silent data corruption caused 6 of its 419 unexpected interruptions (1.4%) ([fact sheet](../appendix/fact-sheets/llama-3.md#reliability)). Frontier labs treat silent corruption as a first-class failure mode and run periodic checksum checks on the gradient buffer as a default.
 
 ## 7.9 Filesystem failures
 
@@ -327,7 +329,7 @@ The physical plant is a constraint that has become a primary design parameter.
 
 **Power.** An H100 SXM is rated at 700 W TDP. An H200 is similar. A DGX H100 node with 8 H100s and the rest of the system draws approximately 10–12 kW under sustained training load. A rack of 4 nodes draws 40–50 kW. The xAI Colossus announcement [\[40\]](../appendix/b-references.md#40-xai-colossus) reports a 150 MW initial buildout for the 100k H100 cluster — at 700 W per H100, 100k H100s alone are 70 MW, and the rest of the infrastructure (CPU, memory, storage, networking, cooling overhead) brings the total to 150 MW. A "1 MW per rack" design is the modern standard: 4–8 DGX nodes, fully populated, with InfiniBand switches and storage, and the cooling plant to match.
 
-**Cooling.** At 700 W per H100, air cooling is not enough. The standard frontier data center uses **direct-to-chip liquid cooling**: a cold plate on the GPU die, with a coolant loop that takes the heat to a heat exchanger on the building exterior. The non-GPU parts (CPU, memory, NVSwitch, HCAs) can be air-cooled, but the GPU block needs liquid. The DeepSeek-V3 paper does not discuss cooling [\[1\]](../appendix/b-references.md#1-deepseek-v3); the xAI Memphis site is liquid-cooled throughout, and the public renderings show cold-plate loops on every node [\[40\]](../appendix/b-references.md#40-xai-colossus). The Alibaba Panjin cluster (Qwen) is similarly liquid-cooled. Air cooling is a legacy approach and is no longer built for new frontier sites.
+**Cooling.** At 700 W per H100, air cooling is not enough. The standard frontier data center uses **direct-to-chip liquid cooling**: a cold plate on the GPU die, with a coolant loop that takes the heat to a heat exchanger on the building exterior. The non-GPU parts (CPU, memory, NVSwitch, HCAs) can be air-cooled, but the GPU block needs liquid. The DeepSeek-V3 paper does not discuss cooling [\[1\]](../appendix/b-references.md#1-deepseek-v3); the xAI Memphis site is liquid-cooled throughout, and the public renderings show cold-plate loops on every node [\[40\]](../appendix/b-references.md#40-xai-colossus). Air cooling is a legacy approach and is no longer built for new frontier sites.
 
 **Capacity planning.** A frontier run is now gated by megawatts. The lead time for new substation capacity in the US is 2–5 years. This is why xAI built in Memphis (where the Tennessee Valley Authority had spare capacity), why Anthropic is partnering with AWS for new data centers, and why the next round of frontier clusters is being sited in regions with available power (Pacific Northwest, Iceland, Norway, the Middle East). We cover this in §7.14.
 
@@ -385,15 +387,15 @@ def main_with_recovery():
 The pieces:
 
 - **Synchronous checkpoint every N steps.** A full save of model weights, optimizer state, dataloader position, RNG state, and step count. For a 671B model in BF16 with FP32 optimizer state, the checkpoint is ~5 TB. Writing 5 TB to a parallel filesystem at 10 GB/s takes ~500 seconds (~8 minutes). This is too slow to do every step, so the typical cadence is every 100–1,000 steps (every 30 minutes to a few hours of training).
-- **Asynchronous checkpointing.** The save runs in a background thread or process while the main training loop continues. The trick: keep a copy of the model and optimizer state in pinned CPU memory, snapshot it asynchronously, and write the snapshot to disk. The main loop is gated on a much smaller "shadow" save (every few minutes), and the full save happens out-of-band. The DeepSeek-V3 paper does not detail its checkpointing system, but the `DualPipe` and `DeepEP` repositories include asynchronous checkpointing code. The Megatron-LM `dist_checkpointing` and the PyTorch FSDP `SHARDED_STATE_DICT` mechanisms are the standard building blocks.
+- **Asynchronous checkpointing.** The save runs in a background thread or process while the main training loop continues. The trick: keep a copy of the model and optimizer state in pinned CPU memory, snapshot it asynchronously, and write the snapshot to disk. The main loop is gated on a much smaller "shadow" save (every few minutes), and the full save happens out-of-band. The DeepSeek-V3 paper does not describe its checkpointing system, and neither the `DualPipe` nor the `DeepEP` repository contains checkpointing code (same commits as §7.5.2). The Megatron-LM `dist_checkpointing` and the PyTorch FSDP `SHARDED_STATE_DICT` mechanisms are the standard building blocks.
 - **Dataloader resumption.** The dataloader is stateful (it has a current position in the data, an RNG state for shuffling, and a current sequence index). The checkpoint must include the dataloader state, or the resumed run will re-process the data it just trained on. This is a common bug: the run resumes, the loss curve looks normal, but the data is duplicated and the effective number of tokens trained is less than the step counter says.
 - **RNG state.** AdamW is sensitive to the exact order of random operations (dropout, weight init, dataloader shuffling). If the RNG state is not restored, the resumed run is not bit-identical to the un-failed run, which makes the loss curve discontinuous. This is not catastrophic but it is operationally annoying.
 
-The two-week run that died at hour 200 problem: a 14-day run that crashed 6 hours before completion has lost 13 days of training and 6 hours of compute. The mitigation is aggressive checkpointing (every 30 minutes) and, increasingly, **in-memory replication** of the optimizer state on a small set of "hot spare" nodes that can take over if a node dies. The DeepSeek-V3 paper does not describe this in detail, but the Qwen3 team's public talks and the Meta Llama-3 paper both mention it [\[5\]](../appendix/b-references.md#5-llama-3).
+The two-week run that died at hour 200 problem: a 14-day run that crashed 6 hours before completion has lost 13 days of training and 6 hours of compute. The mitigation is aggressive checkpointing (every 30 minutes) and, increasingly, **in-memory replication** of the optimizer state on a small set of "hot spare" nodes that can take over if a node dies. The DeepSeek-V3 paper does not describe this, and neither does the Llama-3 paper, which reports shorter job-startup and checkpointing times and fast diagnosis tools instead [\[5\]](../appendix/b-references.md#5-llama-3) ([fact sheet](../appendix/fact-sheets/llama-3.md#reliability)).
 
 ## 7.12 The MTBF reality
 
-Let's do the math for a few common cluster sizes, assuming a per-GPU MTBF of 16 hours of sustained training (a reasonable number for an H100 at full load, lower than the datasheet's spec):
+Let's do the math for a few common cluster sizes, assuming a per-GPU MTBF of about 16,000 hours of sustained training (16,384, to keep the arithmetic round; below the datasheet's spec):
 
 | Cluster size | MTBF (one failure) | Failures per day | Failures per 60-day run |
 |---|---|---|---|
@@ -404,13 +406,17 @@ Let's do the math for a few common cluster sizes, assuming a per-GPU MTBF of 16 
 
 The 100k-GPU row is why frontier training is, at the limit, a problem of operational engineering. Colossus at 100k H100s is expected to lose ~6 GPUs per hour, and the failure-recovery loop must complete in under a minute to keep the cluster utilization above 80%.
 
-In practice, the GPU failures are not the dominant cause of run interruptions. The dominant causes, in order, are:
+The assumption is pessimistic. Llama-3 measured about 8 unexpected interruptions a day on 16K H100s, from all causes, against the table's 24 ([fact sheet](../appendix/fact-sheets/llama-3.md#reliability)).
 
-1. **Network events** (switch port flaps, fiber issues, HCA errors). 40–50% of interruptions.
-2. **Filesystem events** (full disk, slow OSS, metadata server hiccup). 20–30%.
-3. **GPU hardware failures** (HBM, NVLink, PCIe). 10–20%.
-4. **Software bugs** (NCCL hangs, custom collective bugs, framework crashes). 10–20%.
-5. **Power and cooling events** (PSU failures, cooling pump trips, substation blips). 5–10%.
+In practice, GPU failures are the dominant cause of run interruptions. The one large public breakdown is Llama-3's: 419 unexpected interruptions in a 54-day snapshot of its 405B run [\[5\]](../appendix/b-references.md#5-llama-3). In order ([fact sheet](../appendix/fact-sheets/llama-3.md#reliability)):
+
+1. **GPU issues** (faulty GPUs, HBM3 and SRAM memory, the GPU system processor, thermal interfaces, silent data corruption). 58.7% of unexpected interruptions.
+2. **Software bugs.** 12.9%.
+3. **Network switches and cables.** 8.4%.
+4. **Unplanned host maintenance.** 7.6%.
+5. **Everything else** (NICs, NCCL watchdog timeouts, SSDs, power supplies, CPUs, host memory). Each 1.7% or less.
+
+About 78% of the unexpected interruptions were confirmed or suspected hardware issues. Chapter 21 works from the same numbers. Filesystem and cooling events do not appear as categories at all.
 
 A well-engineered frontier run keeps the failure-recovery loop under 5 minutes for 95% of interruptions. The 5% that take longer (a metadata server restart, a switch firmware update) cost more in lost time but are rare.
 
@@ -418,7 +424,7 @@ A well-engineered frontier run keeps the failure-recovery loop under 5 minutes f
 
 The three main frameworks each handle this differently:
 
-- **Megatron-LM** [\[3\]](../appendix/b-references.md#3-megatron-lm). The reference implementation. Built around a `PersistentWorker` model: each worker saves its state to a local async buffer; on failure, the launcher detects the dead worker, drains it, and respawns it; the new worker loads the latest checkpoint from the parallel filesystem and rejoins. The recovery is at the worker level, not the job level, so a single GPU failure does not restart the whole job. DeepSeek-V3 builds on this pattern [\[1\]](../appendix/b-references.md#1-deepseek-v3).
+- **Megatron-LM** [\[3\]](../appendix/b-references.md#3-megatron-lm). The reference implementation. It writes checkpoints asynchronously through a persistent background worker process (`init_persistent_async_worker` in `megatron/training/async_utils.py`), and it can optionally restart training inside the same processes after a fault, through NVIDIA's resiliency extension (`megatron/training/inprocess_restart.py`); both files are in `NVIDIA/Megatron-LM` @d113016. DeepSeek-V3 did not use Megatron-LM: it was trained on HAI-LLM, DeepSeek's in-house framework, whose recovery system the report does not describe [\[1\]](../appendix/b-references.md#1-deepseek-v3) ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#parallelism-layout)).
 
 - **FSDP** [\[18\]](../appendix/b-references.md#18-fsdp). The PyTorch-native fully sharded data parallel. FSDP's `BACKWARD_PRE` and `BACKWARD_POST` hooks handle the all-gather and reduce-scatter; on failure, FSDP's `StateDictType.SHARDED_STATE_DICT` allows a partial reload from the last sharded checkpoint. The recovery is at the rank level.
 
@@ -515,7 +521,7 @@ The dollar number is the constraint that bounds everything else.
 - Direct purchase of H100: ~$30,000–$40,000 per GPU. At a 3-year amortization and 80% utilization, per-GPU-hour: ~$1.40.
 - xAI Colossus: not publicly priced, but the $6B funding round and the 100k H100 build suggest a per-GPU-hour in the $1.50–$2.50 range for the compute itself, plus power, cooling, and operations.
 
-The DeepSeek-V3 paper reports 2,788K H800-hours for 2 months of training [\[1\]](../appendix/b-references.md#1-deepseek-v3). At $1.50/H800-hour (the H800 is a slightly cheaper China-export-compliant variant of the H100), that is ~$5.5M. The Llama-3 405B training cost is reported at "tens of millions of dollars" of compute, with the 16,000 H100 cluster running for ~50 days; the per-GPU-hour implied is in the same $1–$3 range. Anthropic's Project Rainier is reportedly a >$10B multi-year commitment, spread over hundreds of thousands of Trainium 2 chips [\[41\]](../appendix/b-references.md#41-aws-trainium-2--project-rainier).
+The DeepSeek-V3 paper reports 2,788K H800 GPU-hours for its full training, of which 2,664K was pre-training that took "less than two months" [\[1\]](../appendix/b-references.md#1-deepseek-v3). At the report's assumed $2 per GPU-hour, that is $5.576M ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#context-extension-post-training-and-cost)). Meta gives no dollar figure for Llama-3 405B. Its model card gives 30.84M H100 GPU-hours ([fact sheet](../appendix/fact-sheets/llama-3.md#compute)), which at $1–$3 per GPU-hour is roughly $30M–$90M. Anthropic's Project Rainier is reportedly a >$10B multi-year commitment, spread over hundreds of thousands of Trainium 2 chips [\[41\]](../appendix/b-references.md#41-aws-trainium-2--project-rainier).
 
 **Cluster utilization.** The fraction of the time the cluster is doing useful work, as opposed to being broken, idle, or running overhead. Frontier numbers:
 
@@ -531,10 +537,10 @@ The non-utilized time is spent on: failure recovery (5–15%), checkpointing (1�
 
 A cost calculation example. The Llama-3 405B pre-training run, in approximate dollars:
 
-- 16,000 H100s × 50 days × 24 hours = 19.2M H100-hours
-- At $2/H100-hour (rough estimate for owned hardware): $38.4M
-- At AWS p5 pricing ($12/GPU-hour): $230M
-- The reported number is "tens of millions," consistent with owned hardware at $1.50–$2.00/GPU-hour.
+- 30.84M H100-hours, from Meta's model card ([fact sheet](../appendix/fact-sheets/llama-3.md#compute))
+- At $2/H100-hour (rough estimate for owned hardware): ~$62M
+- At AWS p5 pricing ($12/GPU-hour): ~$370M
+- Meta reports no dollar figure. These prices are our assumptions, not Meta's.
 
 **Cost of frontier lab buildouts.** The xAI Colossus announcement [\[40\]](../appendix/b-references.md#40-xai-colossus) is the most cited number: a 100k H100 cluster built in 122 days, at an estimated cost of $3B–$5B for the compute and another $1B–$2B for the site, power, and cooling. The Anthropic Project Rainier announcement [\[41\]](../appendix/b-references.md#41-aws-trainium-2--project-rainier) implies a similar multi-billion-dollar multi-year commitment, but on a non-NVIDIA platform. Meta's announced 1.3M-H100-equivalent supercluster is a multi-year, multi-site build that, at $30K–$40K per H100-equivalent, implies a $40B–$50B capex. These are the numbers that bound the next 2–3 years of the field.
 
@@ -571,7 +577,7 @@ The next chapter is the optimization deep dive: the optimizer internals, the LR 
 ---
 
 **Exercises:** [Chapter 7 problem set](../../exercises/ch07.md) — includes the straggler-tax arithmetic and the topology-diagnosis drill.
-**Lab:** [`lab07_collective_bandwidth`](../../labs/lab07_collective_bandwidth.py) — model ring and hierarchical all-reduce, all-to-all under oversubscription, and the straggler tax, and watch the same job lose ~2× throughput to one interconnect decision.
+**Lab:** [`lab07_collective_bandwidth`](../../labs/lab07_collective_bandwidth.py) — model ring and hierarchical all-reduce, all-to-all under oversubscription, and the straggler tax, and watch the same job run 3.5× slower because of one interconnect decision.
 
 ---
 
@@ -579,8 +585,7 @@ The next chapter is the optimization deep dive: the optimizer internals, the LR 
 
 - [\[1\] DeepSeek-V3 Technical Report](../appendix/b-references.md#1-deepseek-v3) — primary case study for the 2,048-H800 cluster layout and the parallelism strategy.
 - [\[3\] Megatron-LM](../appendix/b-references.md#3-megatron-lm) — the reference 3D-parallelism implementation; the basis of the topology-aware placement discussion.
-- [\[5\] Llama 3](../appendix/b-references.md#5-llama-3) — the Meta training infrastructure section, including the RoCE fabric and the Llama-3 MTBF discussion.
-- [\[6\] Qwen3](../appendix/b-references.md#6-qwen3) — the Chinese-side case study for the Qwen3 cluster at Alibaba Panjin.
+- [\[5\] Llama 3](../appendix/b-references.md#5-llama-3) — the Meta training infrastructure section, including the RoCE fabric and the interruption statistics from the 54-day snapshot.
 - [\[17\] ZeRO](../appendix/b-references.md#17-zero) — DeepSpeed ZeRO and the FSDP/ZeRO-3 equivalence for the checkpoint and recovery discussion.
 - [\[18\] FSDP](../appendix/b-references.md#18-fsdp) — PyTorch FSDP for the failure-recovery and sharded-checkpoint discussion.
 - [\[40\] xAI Colossus](../appendix/b-references.md#40-xai-colossus) — the 100k H100 cluster announcement; the case study for the super-pod tier and the power/cooling numbers.

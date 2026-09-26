@@ -2,6 +2,8 @@
 
 > Reading time: ~35 minutes. By the end of this chapter you should understand what supervised fine-tuning actually consists of at a frontier lab — where the data comes from, why loss masking and sequence packing are where most bugs live, and why SFT is simultaneously the least glamorous and highest-leverage stage of post-training. You should be able to read the SFT section of a technical report and know which of its unstated choices matter.
 
+*Current as of early 2025.*
+
 ## 11.1 The stage everybody underestimates
 
 Pre-training is where the compute goes. Reinforcement learning is where the papers go. Supervised fine-tuning is where the *model* comes from.

@@ -2,6 +2,8 @@
 
 > Reading time: ~25 minutes. By the end of this chapter you should be able to read a frontier-lab job description and know which chapters of this book it is describing, what the team is actually struggling with, what they will test in an interview, and how to build evidence you can do the work without access to a cluster.
 
+*Current as of early 2025.*
+
 ## 24.1 Why job descriptions are written the way they are
 
 A frontier-lab JD is usually written by an engineer on the team, lightly edited by a recruiter, and it is optimizing for something other than clarity. Two forces distort it.

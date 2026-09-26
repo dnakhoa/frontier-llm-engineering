@@ -8,17 +8,33 @@
 
 **📖 Read it online: [dnakhoa.github.io/frontier-llm-engineering](https://dnakhoa.github.io/frontier-llm-engineering/)** — full book with rendered math, diagrams, and search, republished automatically on every commit.
 
-**26 chapters. 19 runnable labs. Exercises with worked solutions for every chapter. No paywall, no application, no cohort, no waitlist.**
+**26 chapters. 19 runnable labs, CPU-first, every one tested in CI. Exercises with worked solutions for every chapter. Free, with no paywall, application or cohort.**
 
 ---
 
+## What you'll build
+
+Each lab is one Python file that runs in Colab or on a laptop CPU in seconds to minutes. Each one builds a piece of a frontier training stack from scratch and measures something about it that people usually get wrong. These are the numbers the labs print at full size, on a laptop CPU:
+
+| Build this | and find out that… | Open |
+|---|---|---|
+| **GRPO** on a countdown-arithmetic task | a 0.05-per-token "thinking" bonus takes accuracy from **0.996 to exactly 0.000** — the policy pads its reasoning to collect the bonus | [lab15](https://colab.research.google.com/github/dnakhoa/frontier-llm-engineering/blob/main/labs/lab15_grpo_countdown.ipynb) |
+| A **Bradley–Terry reward model** | it scores **100%** on held-out pairs and **48.5%** — below chance — once response length stops giving the answer away | [lab12](https://colab.research.google.com/github/dnakhoa/frontier-llm-engineering/blob/main/labs/lab12_reward_model.ipynb) |
+| A **byte-level BPE tokenizer** | training its merges on English alone makes Vietnamese cost **~2×** as many tokens | [lab04](https://colab.research.google.com/github/dnakhoa/frontier-llm-engineering/blob/main/labs/lab04_train_a_bpe_tokenizer.ipynb) |
+| **MinHash + LSH** deduplication | exact hashing finds only **~48%** of the duplicates you planted | [lab03](https://colab.research.google.com/github/dnakhoa/frontier-llm-engineering/blob/main/labs/lab03_dedup_and_quality.ipynb) |
+| An **MoE router**, then DeepSeek's auxiliary-loss-free balancer | an unbalanced router leaves the busiest expert **3.4×** the mean load, and the whole step waits for it | [lab05](https://colab.research.google.com/github/dnakhoa/frontier-llm-engineering/blob/main/labs/lab05_moe_routing.ipynb) |
+| **Continuous batching** and a **paged KV allocator** | continuous batching is **5.8×** static on a heavy-tailed request stream; paging cuts fragmentation from **86.5% to 0.7%** | [lab22](https://colab.research.google.com/github/dnakhoa/frontier-llm-engineering/blob/main/labs/lab22_kv_cache_and_batching.ipynb) |
+| A **parallelism memory model** for any TP/PP/EP/DP/ZeRO layout | why DeepSeek-V3 ran expert parallelism across 8 nodes, when a naive cost model says that should be ~26× slower | [lab06](https://colab.research.google.com/github/dnakhoa/frontier-llm-engineering/blob/main/labs/lab06_parallelism_memory_model.ipynb) |
+| **Checkpoint resume** tested for bit-exactness | every incomplete resume recipe diverges on the **first** step after the restart, silently | [lab21](https://colab.research.google.com/github/dnakhoa/frontier-llm-engineering/blob/main/labs/lab21_checkpoint_resume.ipynb) |
+| An **n-gram contamination detector** | it catches **100%** of verbatim copies and **0%** of paraphrases | [lab23](https://colab.research.google.com/github/dnakhoa/frontier-llm-engineering/blob/main/labs/lab23_contamination_check.ipynb) |
+
+**Zero install:** click any lab above. It opens in Colab, installs what it needs and runs top to bottom. The [labs index](labs/README.md) has all 19 and the chapter each one belongs to.
+
+**On accuracy and currency.** The book corrects itself in public. Every claim it once made that its own sources contradict is listed, with the fix, on the [errata page](book/appendix/d-errata.md). The numbers it relies on are collected with pinpoint citations in the [fact sheets](book/appendix/c-fact-sheets.md). Each chapter carries a *Current as of* stamp; most still read "early 2025", and the post-training chapters are being refreshed first.
+
 ## Why this exists
 
-The knowledge of how a frontier model gets built is not actually secret. It is spread across a few dozen technical reports, a few hundred papers, some very good blog posts, and a lot of tacit knowledge that never gets written down. Assembling it is the hard part, and that assembly work is what people currently pay thousands of dollars and compete for limited slots to have done for them.
-
-That gap does not need to exist. This repository is the assembly, done in the open, given away.
-
-If it helps you get the job, ship the run, or just understand what the DeepSeek-V3 report is actually saying — that is the entire point. Star it, fork it, translate it, teach from it. The license explicitly allows all of that, including commercially.
+How a frontier model gets built is not secret. It is spread across a few dozen technical reports, a few hundred papers, some very good blog posts, and a lot of tacit knowledge that never gets written down. Assembling it is the hard part, and people pay thousands of dollars for courses that do the assembly. This repository does it in the open, for free: star it, fork it, translate it, teach from it. The license allows all of that, including commercially.
 
 ## Who this is for
 
@@ -27,11 +43,7 @@ If it helps you get the job, ship the run, or just understand what the DeepSeek-
 - **Self-learners** with a laptop and a Colab tab who want a structured path instead of a reading list.
 - **Researchers** who want to understand how systems-level choices in modern training runs shape the scientific questions they can ask.
 
-## Who this is *not* for
-
-- People looking for a tutorial on fine-tuning a 7B model in Colab. (Though the labs *do* run in Colab — they teach the mechanisms, not the recipe.)
-- People looking for a survey of "top 100 LLM applications."
-- People looking for a generic distributed-systems textbook with transformers stapled on at the end.
+It is *not* a fine-tuning tutorial, a survey of LLM applications, or a distributed-systems textbook with transformers stapled on. The labs teach mechanisms, not recipes.
 
 ## Start here
 
@@ -48,17 +60,20 @@ New readers: read the [Preface](book/preface.md), then [Chapter 1](book/part-1-f
 ## What's in the box
 
 ```
-book/          26 chapters across 5 parts, plus glossary and 95 references
+book/          26 chapters across 5 parts, plus glossary, 97 references,
+               fact sheets and the errata page
 exercises/     26 problem sets — arithmetic drills, design problems,
                paper-reading prompts — each with a worked solution set
 labs/          19 runnable labs you can paste straight into Colab
-tools/         link checker, structure checker, notebook builder, lab runner
+tools/         link and structure checkers, the real-config generator,
+               notebook builder, lab runner, and their tests
+docs/          the 2026-09 audit, the glossary's decision records (ADRs)
 ```
 
 ### What is complete
 
-All 26 chapters (~116,000 words), all 26 exercise sets and all 26 worked solution
-sets (~125,000 words), the glossary, 95 references, and **all 19 labs** — every
+All 26 chapters (~119,000 words), all 26 exercise sets and all 26 worked solution
+sets (~129,000 words), the glossary, 97 references, and **all 19 labs** — every
 lab the chapters name now exists, runs, and is checked by CI on every commit.
 
 Two caveats worth stating plainly, because the book asks the same of the papers
@@ -69,8 +84,11 @@ it cites:
   a table of which sections are exact arithmetic, which are measured on CPU, and
   which require hardware; the kernel source is included in full and runs where a
   GPU exists. Nothing is faked.
-- **Chapters 2 and 3 have no per-chapter reference block**, unlike the other 24.
-  Their citations live in [the full reference list](book/appendix/b-references.md).
+- **"Complete" does not mean "current".** A primary-source audit in September
+  2026 found claims the book's own sources contradict. Those are fixed in v1.0.1
+  and listed on the [errata page](book/appendix/d-errata.md). It also found that
+  most chapters' sources stop in early 2025. Refreshing them is under way, and
+  each chapter's currency stamp says where it stands.
 
 Corrections and better labs are still very welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -127,11 +145,11 @@ Code in `labs/`, `tools/`, and the chapters: [MIT](LICENSE-CODE) — lift it int
 
 ## Conventions used throughout
 
-- Code blocks are real, or real-shaped, configurations from public papers and blog posts.
+- A config block is either **real** — generated from the published file at a pinned commit, and labelled with its origin — or labelled **illustrative**. Nothing in between.
 - Citations are inline as `[N]` with full entries in [the reference list](book/appendix/b-references.md).
 - "We" refers to the field, not a specific lab, unless a section anchors on one.
 - "Frontier lab" means a lab that trains its own foundation model from scratch — Anthropic, OpenAI, Google DeepMind, Meta, xAI, Microsoft, Alibaba (Qwen), DeepSeek, Moonshot, ByteDance, Zhipu, Mistral, and similar.
-- Where a lab has not published something, we say so instead of guessing.
+- Where a lab has not published something, we say so instead of guessing. Facts about a specific model live once, with a citation, in its [fact sheet](book/appendix/c-fact-sheets.md).
 
 ## Status
 

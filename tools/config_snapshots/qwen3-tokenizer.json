@@ -1,0 +1,86 @@
+{
+  "id": "qwen3-tokenizer",
+  "provenance": {
+    "repo": "Qwen/Qwen3-235B-A22B",
+    "revision": "8efa61729e24bd65b1d152b5ab5409052aa80e65",
+    "downloaded_from": "Qwen/Qwen3-235B-A22B@8efa61729e24bd65b1d152b5ab5409052aa80e65",
+    "retrieved": "2026-09-26",
+    "files": {
+      "tokenizer": {
+        "path": "tokenizer.json",
+        "verified_by": "sha256",
+        "git_blob": "949e1ec83f61520a25c75426edc4a43acc36f29a",
+        "sha256": "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4"
+      },
+      "config": {
+        "path": "config.json",
+        "verified_by": "git_blob",
+        "git_blob": "5366b39a2fad87796848caedcb3dadb585a5fa51",
+        "sha256": "0ecd5d6fe6f2db6739e4e36ab06b88ebe7bd013ef31b9583f43796059a2b23a4"
+      }
+    }
+  },
+  "tokenizer": {
+    "model_type": "BPE",
+    "byte_fallback": false,
+    "vocab_entries": 151643,
+    "merges": 151387,
+    "added_tokens": 26,
+    "special_tokens": 14,
+    "special_tokens_head": [
+      {
+        "id": 151643,
+        "content": "<|endoftext|>"
+      },
+      {
+        "id": 151644,
+        "content": "<|im_start|>"
+      },
+      {
+        "id": 151645,
+        "content": "<|im_end|>"
+      },
+      {
+        "id": 151646,
+        "content": "<|object_ref_start|>"
+      },
+      {
+        "id": 151647,
+        "content": "<|object_ref_end|>"
+      },
+      {
+        "id": 151648,
+        "content": "<|box_start|>"
+      }
+    ],
+    "normalizer": {
+      "type": "NFC"
+    },
+    "pre_tokenizer": {
+      "type": "Sequence",
+      "pretokenizers": [
+        {
+          "type": "Split",
+          "pattern": {
+            "Regex": "(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+"
+          },
+          "behavior": "Isolated",
+          "invert": false
+        },
+        {
+          "type": "ByteLevel",
+          "add_prefix_space": false,
+          "trim_offsets": false,
+          "use_regex": false
+        }
+      ]
+    },
+    "decoder_type": "ByteLevel"
+  },
+  "config": {
+    "vocab_size": 151936,
+    "tie_word_embeddings": false,
+    "bos_token_id": 151643,
+    "eos_token_id": 151645
+  }
+}

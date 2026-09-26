@@ -2,6 +2,8 @@
 
 > Reading time: ~30 minutes. By the end of this chapter you should understand the mechanical difference between preferences implied by annotator behaviour and criteria written down in English, how Constitutional AI's two stages work, why AI-generated preference labels turned out to be competitive with human ones, what deliberative alignment does differently, and where all of it demonstrably fails. This chapter describes the techniques; it does not argue for or against any particular set of values.
 
+*Current as of early 2025.*
+
 ## 17.1 Where a model's values actually come from
 
 By Chapter 12 you have a reward model trained on human preference labels. Ask what determines its behaviour on a borderline request and the answer is uncomfortable: **whatever the annotators did.**

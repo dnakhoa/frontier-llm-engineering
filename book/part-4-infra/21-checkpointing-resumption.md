@@ -2,6 +2,8 @@
 
 > Reading time: ~35 minutes. By the end of this chapter you should be able to compute a checkpoint's size and the optimal interval between checkpoints, explain why the data loader is the most commonly forgotten piece of training state, know what makes bit-exact resumption hard and when it is worth the cost, and diagnose the characteristic failure where a run resumes successfully and silently trains on the wrong data.
 
+*Current as of early 2025.*
+
 ## 21.1 Failure is the normal case
 
 A frontier pre-training run occupies thousands of GPUs for weeks. Individual components are reliable; the aggregate is not.

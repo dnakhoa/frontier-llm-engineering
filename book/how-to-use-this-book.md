@@ -8,7 +8,7 @@ This book is designed to be worked through alone, without a cohort, an instructo
 
 Each chapter has three layers, and you can stop at any of them.
 
-**Layer 1 — the chapter.** Prose, math, real configurations from real technical reports. Reading a chapter takes 20–45 minutes. If you only read the chapters, you will be able to follow a frontier-lab technical report and hold a conversation with someone who does this work. That is a real outcome and it is enough for many readers.
+**Layer 1 — the chapter.** Prose, math, and configurations that are either generated from the real published files or clearly labelled illustrative. Reading a chapter takes 20–45 minutes. If you only read the chapters, you will be able to follow a frontier-lab technical report and hold a conversation with someone who does this work. That is a real outcome and it is enough for many readers.
 
 **Layer 2 — the exercises.** A problem set per chapter, in [`exercises/`](../exercises/README.md), in three flavours:
 
@@ -25,6 +25,8 @@ The labs are where the abstractions stop being abstractions.
 ## Reading the chapters
 
 Every chapter opens with a header block giving an estimated reading time and a one-sentence statement of what you should be able to do afterwards. Take that sentence seriously — it is the exit criterion, and the exercises test exactly it.
+
+Under the header is a **currency stamp**: *Current as of early 2025*, or a month and year. It gives the date the chapter's claims were last checked against the field, not the date it was last edited, so a typo fix or a correction leaves it alone. This field moves by the quarter, so chapters age at different rates. A chapter stamped "early 2025" may be accurate about everything it says and still be missing a year of work. The book's own mistakes are listed on the [errata page](appendix/d-errata.md), and the numbers it relies on are collected, with sources, in the [fact sheets](appendix/c-fact-sheets.md).
 
 The chapter body is numbered by section (§6.4, §11.2) so the exercises and solutions can point at specific arguments. When a solution says "see §8.7," it means it.
 

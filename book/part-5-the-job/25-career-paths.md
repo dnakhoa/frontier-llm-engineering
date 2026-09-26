@@ -2,6 +2,8 @@
 
 > Reading time: ~25 minutes. By the end of this chapter you should have a realistic map of the roles that exist, an honest answer to the PhD question, a sense of which entry points are actually open, and a view on what compounds in a field that reinvents its techniques every eighteen months.
 
+*Current as of early 2025.*
+
 ## 25.1 The role map
 
 Chapter 2 introduced the org chart. Here it is again as a career map, with the honest annotations.

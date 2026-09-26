@@ -2,6 +2,8 @@
 
 > Reading time: ~25 minutes. By the end of this chapter you should be able to read a frontier-lab technical report and recognize every component in it.
 
+*Current as of early 2025.*
+
 ## 1.1 The mental model
 
 Most of the public discussion of "training an LLM" is a cartoon. You have some data. You have a model. You do forward pass, backward pass, update weights, repeat. The cartoon is not wrong, but it is missing almost everything that actually matters at frontier scale.
@@ -23,13 +25,13 @@ To make this concrete, let us walk through one real run end-to-end. The cleanest
 
 ## 1.2 The case: DeepSeek-V3 in one page
 
-DeepSeek-V3 is a 671B-parameter Mixture-of-Experts language model with 37B parameters active per token [\[1\]](../appendix/b-references.md#1-deepseek-v3). It was trained on 14.8 trillion tokens of multilingual data, on a cluster of 2,048 NVIDIA H800 GPUs, in approximately 2 months (2,788K H800 GPU-hours). The team reports a training cost of approximately $5.5M USD, which is roughly an order of magnitude cheaper than comparable Western frontier runs of the same period.
+DeepSeek-V3 is a 671B-parameter Mixture-of-Experts language model with 37B parameters active per token [\[1\]](../appendix/b-references.md#1-deepseek-v3). It was trained on 14.8 trillion tokens of multilingual data, on a cluster of 2,048 NVIDIA H800 GPUs, in 2,788K H800 GPU-hours: 2,664K for pre-training, which took under two months, plus 119K for context extension and 5K for post-training ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#context-extension-post-training-and-cost)). At an assumed $2 per GPU-hour the team reports $5.576M for the full training, which is roughly an order of magnitude cheaper than comparable Western frontier runs of the same period.
 
 The architectural choices that made DeepSeek-V3 unusual:
 
 - **Multi-head Latent Attention (MLA)** — a compressed Key-Value representation that reduces KV cache memory by 93% compared to standard Multi-Head Attention, without quality loss. This is what makes serving a 671B model economically viable.
 - **DeepSeekMoE** — a fine-grained MoE architecture with 256 routed experts and 1 shared expert, using an auxiliary-loss-*free* load balancing scheme. This is one of the first large-scale demonstrations that you do not need the standard auxiliary loss to keep expert loads balanced.
-- **FP8 mixed-precision training** — one of the first production-scale runs to use FP8 (E4M3 and E5M2 formats) for the bulk of the matmuls, with BF16 retained for certain numerically sensitive ops. This halves the memory and roughly doubles the throughput relative to BF16.
+- **FP8 mixed-precision training** — one of the first production-scale runs to use FP8 for the bulk of the matmuls: E4M3 on all tensors, made workable by fine-grained scaling, with BF16/FP32 retained for numerically sensitive ops ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#precision)). The report says this "theoretically doubles" GEMM speed relative to BF16.
 - **DualPipe** — a custom pipeline-parallelism schedule that overlaps attention and MoE communication with computation, hiding the network cost of the all-to-all collective.
 - **Multi-token prediction (MTP)** — a training objective where the model predicts not just the next token but several future tokens at each position, providing a denser training signal.
 
@@ -83,7 +85,7 @@ For DeepSeek-V3 specifically, the 14.8T token corpus was built from a Chinese-co
 What makes this "weird" compared to what you might have seen in a tutorial:
 
 - **Deduplication happens at multiple granularities.** Document-level (MinHash) catches exact and near-duplicate web pages. Paragraph-level catches sections copied across documents. Token-level (suffix array) catches repeated boilerplate inside a document. Each is a separate pipeline, often built on different infrastructure (Spark, Ray, custom C++).
-- **Quality filtering is a model itself.** Frontier labs train a small classifier (often an XGBoost on simple features, or a 100M–1B parameter transformer) on a small labeled set of "high quality" vs "low quality" documents. The classifier is then used to filter the corpus. The classifier is itself trained on outputs from a strong model. This is circular and it is fine, because the strong model was trained on previous data of similar character.
+- **Quality filtering is a model itself.** Frontier labs train a small classifier (a linear or fastText model, or a small transformer; Llama 3 used fastText and DistilRoberta) on a small labeled set of "high quality" vs "low quality" documents. The classifier is then used to filter the corpus. The classifier is itself trained on outputs from a strong model. This is circular and it is fine, because the strong model was trained on previous data of similar character.
 - **Contamination removal is non-negotiable.** If your evaluation benchmark is in your training data, the eval is meaningless. Labs run n-gram overlap (typically 8-gram or 13-gram with a threshold) against every benchmark they care about (MMLU, GSM8K, HumanEval, etc.) and drop contaminated documents. This is the reason that, when a new benchmark drops, you cannot just trust a model's leaderboard score until the lab has re-run the contamination check.
 - **Synthetic data is in the mix.** DeepSeek-V3 explicitly includes synthetic math and code in its training mix. The synthetic data is generated by previous DeepSeek models (including DeepSeek-Coder and earlier versions) and filtered for correctness.
 
@@ -142,18 +144,19 @@ The actual MLA module is more involved because the K and V projections share a l
 
 ## 1.5 The distributed training system
 
-DeepSeek-V3 was trained on 2,048 H800 GPUs connected via NVLink within a node (8 GPUs) and InfiniBand across nodes. The parallelism strategy:
+DeepSeek-V3 was trained on 2,048 H800 GPUs, 8 per node, connected by NVLink within a node and InfiniBand across nodes. The parallelism strategy ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#parallelism-layout)):
 
-- **Pipeline parallelism (PP)**: the 60 transformer layers are split across 4 pipeline stages (so each stage has 15 layers). DualPipe overlaps forward and backward of one micro-batch with the all-to-all of another.
-- **Expert parallelism (EP)**: the 256 routed experts are split across the 8 GPUs within a node. The all-to-all collective is used to route tokens to their assigned experts.
-- **Data parallelism (DP)**: 64 replicas. One replica spans 32 GPUs — 4 pipeline stages × the 8 GPUs holding its experts — so $2{,}048 / 32 = 64$. Gradients are all-reduced across the 64 replicas, with ZeRO-style optimizer-state sharding inside each. §10.9 works the layout through in full.
-- **No tensor parallelism** within the MoE block, because the experts are already sharded. Dense layers use small TP for the attention heads.
+- **Pipeline parallelism (PP)**: 16-way. The 61 transformer layers are split across 16 pipeline stages, scheduled with **DualPipe**, which overlaps the forward and backward computation of one chunk with the communication of another.
+- **Expert parallelism (EP)**: 64-way, **spanning 8 nodes**. Each layer's 256 routed experts are spread over 64 GPUs, 4 per GPU. The all-to-all that routes tokens to their experts therefore crosses InfiniBand, not just NVLink. Two things keep it affordable: DualPipe hides it behind compute, and each token may be sent to at most 4 nodes.
+- **Data parallelism (DP)**: ZeRO-1, which shards the optimizer state across data-parallel ranks.
+- **No tensor parallelism at all.** DeepSeek optimized memory hard enough that they did not need it.
 
-The total parallelism is 4 (PP) × 8 (EP, which is also the node size) × 64 (DP, in terms of pipeline replicas) = 2,048 GPUs. This is not a unique configuration — the Qwen3 team used a similar 3D-parallel layout, as did Llama-3.
+The surprising choice is the second one. The textbook rule is to keep the MoE all-to-all inside a node on fast NVLink, and V3 deliberately breaks it. Chapter 6 teaches the rule; Chapter 10 (§10.7) shows how V3 makes breaking it pay.
 
-A real Megatron-LM-style configuration file for a 70B-scale model on 1,024 H100s, showing the 3D-parallel layout:
+An illustrative Megatron-LM-style configuration for a 70B-scale dense model on 1,024 H100s, showing the 3D-parallel layout. It is not any lab's file; it shows the shape:
 
 ```yaml
+# ILLUSTRATIVE: not any lab's file. A 70B-scale dense model on 1,024 H100s.
 # model
 num_layers: 80
 hidden_size: 8192
@@ -212,7 +215,7 @@ Precision is where the recent frontier has moved:
 
 - **2018–2022**: FP32 training, then FP16 mixed-precision (FP16 weights, FP32 master copy, FP32 optimizer state).
 - **2022–2023**: BF16 mixed-precision. BF16 has the same dynamic range as FP32 but only 8 bits of mantissa; for transformers, the loss of mantissa is usually fine and the lack of overflow risk is a big win.
-- **2024–2025**: FP8 mixed-precision. The dominant format is E4M3 for forward and weight gradients, E5M2 for activation gradients (because activation gradients have a wider dynamic range). The DeepSeek team was one of the first to publish an FP8-at-scale run.
+- **2024–2025**: FP8 mixed-precision. The dominant format is E4M3 for forward and weight gradients, E5M2 for activation gradients (because activation gradients have a wider dynamic range). The DeepSeek team was one of the first to publish an FP8-at-scale run, and it broke with the hybrid: V3 used E4M3 on all tensors, relying on fine-grained scaling ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#precision)).
 
 Memory cost per parameter under BF16 + AdamW, for a 70B model:
 - Weights in BF16: 70B × 2 = 140 GB
@@ -254,9 +257,9 @@ The recovery loop looks like:
 5. The RNG state is restored to match the checkpoint.
 6. Training resumes.
 
-A well-engineered frontier run has a **Mean Time Between Failures (MTBF)** of 4–8 hours at 2,048-GPU scale. That is, the run crashes, on average, 3–6 times a day. The goal of the training infrastructure is to make each recovery fast enough that the wall-clock cost of failure is small.
+Frontier runs fail often. Llama 3 reports 466 job interruptions (47 of them planned) in a 54-day snapshot of its 405B run on up to 16K GPUs, several a day (Chapter 7). Few labs publish more, and the DeepSeek-V3 report gives no failure figures at all. The goal of the training infrastructure is to make each recovery fast enough that the wall-clock cost of failure is small.
 
-The DeepSeek team reported 2,788K H800 GPU-hours of *useful* training, on a 2,048-GPU cluster over 2 months, implying the cluster was utilized at a high rate. The failure-recovery time must have been small relative to the total.
+The DeepSeek team reported 2,664K H800 GPU-hours for pre-training, completed in "less than two months" on 2,048 GPUs, and a rate of 180K GPU-hours per trillion tokens that matches it exactly. The report does not separate useful training time from failure recovery, so how much was lost to failures is not public.
 
 ## 1.8 The monitoring and evaluation loop
 

@@ -2,6 +2,8 @@
 
 > Reading time: ~35 minutes. By the end of this chapter you should be able to derive the DPO loss from the RLHF objective, explain why the partition function cancels, understand the counterintuitive fact that DPO usually *decreases* the probability of the preferred response, and know when DPO is the right choice versus PPO or GRPO. You should be able to look at the alphabet soup — IPO, KTO, ORPO, SimPO, CPO — and see which knob each one is turning.
 
+*Current as of early 2025.*
+
 ## 14.1 Your language model is secretly a reward model
 
 Chapter 13 built an elaborate machine: a reward model, a value model, a reference model, a policy, a generation cluster, a KL controller, and a set of diagnostics for the six ways it destabilizes.

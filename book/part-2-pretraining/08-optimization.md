@@ -2,11 +2,13 @@
 
 > Reading time: ~45 minutes. By the end of this chapter you should be able to read the optimization section of any frontier-lab technical report, know what each number means, and know which choice is a default and which is a deliberate, lab-specific decision.
 
+*Current as of early 2025.*
+
 ## 8.1 The layer nobody talks about at the right altitude
 
 The optimizer is the second-most-imitated part of frontier training (the first is the data mix). Almost every public reproduction of a frontier model starts with "use AdamW, cosine schedule, BF16, global-norm clip at 1.0." And the published *numbers* — peak LR, warmup steps, weight decay — are often close across labs. The differences show up in three places: how aggressively they push precision (BF16 → FP8 → FP4), how they handle the rare-but-catastrophic loss spike, and how they scale the batch. The art is in those.
 
-This chapter walks through the entire optimization layer of a frontier pre-training run, anchored on four public case studies: **DeepSeek-V3** [\[1\]](../appendix/b-references.md#1-deepseek-v3) (FP8, fine-grained schedule), **Llama 3** [\[5\]](../appendix/b-references.md#5-llama-3) (BF16, the canonical modern schedule), **Qwen3** [\[6\]](../appendix/b-references.md#6-qwen3) (MoE schedule on a dense backbone), and **PaLM** [\[45\]](../appendix/b-references.md#45-palm-chowdhery-et-al-2022) (z-loss, the original 540B run). Where Anthropic or OpenAI have hinted at techniques in system cards, we say so. Where the lab has not published, we say that too.
+This chapter walks through the entire optimization layer of a frontier pre-training run, anchored on four public case studies: **DeepSeek-V3** [\[1\]](../appendix/b-references.md#1-deepseek-v3) (FP8, fine-grained schedule), **Llama 3** [\[5\]](../appendix/b-references.md#5-llama-3) (BF16, the canonical modern schedule), **Qwen3** [\[6\]](../appendix/b-references.md#6-qwen3) (the counterexample: a frontier report that publishes none of its optimizer values), and **PaLM** [\[45\]](../appendix/b-references.md#45-palm-chowdhery-et-al-2022) (z-loss, the original 540B run). Where Anthropic or OpenAI have hinted at techniques in system cards, we say so. Where the lab has not published, we say that too.
 
 The chapter is long, but most of the topics are short. The structure:
 
@@ -49,7 +51,7 @@ Three things are worth knowing about this loss.
 
 **Perplexity.** Perplexity is $\exp(\mathcal{L})$ — the geometric mean of "1 over probability of the true token" at each position. A frontier 70B model hits a held-out perplexity of roughly 6–8 on web text (a cross-entropy of about 1.8–2.1 nats per token). Lower on code, higher on long-tail web.
 
-**Numerical issues.** The cross-entropy is computed in a fused kernel that combines the gather of the target logit with the log-softmax, avoiding materializing the full V-dim softmax (a memory cliff for large vocabularies). PyTorch's `F.cross_entropy` does this; Megatron-LM, Transformer Engine, and torchao do it faster. The DeepSeek-V3 paper specifically calls out a custom fused cross-entropy as one of the optimizations that lets them train at FP8 without losing accuracy on the loss term.
+**Numerical issues.** The cross-entropy is computed in a fused kernel that combines the gather of the target logit with the log-softmax, avoiding materializing the full V-dim softmax (a memory cliff for large vocabularies). PyTorch's `F.cross_entropy` does this; Megatron-LM, Transformer Engine, and torchao do it faster. (The DeepSeek-V3 report does not discuss its cross-entropy kernel; it keeps the output head in higher precision, BF16 or FP32.)
 
 Why cross-entropy and not, say, MSE on the one-hot, or Hinge loss? Three reasons: the softmax probabilities are empirically well-calibrated (matters for rejection sampling, best-of-N, RLHF); the gradient with respect to the logits is bounded and well-scaled (composes cleanly with LR scheduling); and the gradient vanishes when the model assigns near-1.0 to the true token (the correct behavior — nothing more to learn from that example).
 
@@ -115,9 +117,9 @@ The two features that distinguish AdamW from "Adam + L2 regularization":
 - **Decoupled weight decay.** $w \leftarrow w \cdot (1 - \eta \lambda)$ is applied directly to the parameters, *after* the Adam update. In practice, decoupling makes the effective regularization strength independent of the gradient magnitude, which gives much more predictable behavior than the coupled form $w \leftarrow w - \eta(\nabla \mathcal{L} + \lambda w)$.
 - **Bias correction.** The first few steps of Adam have biased moment estimates because $m$ and $v$ are initialized to zero. The bias correction $\hat m = m / (1 - \beta_1^t)$, $\hat v = v / (1 - \beta_2^t)$ removes this. Without it, the first updates are too small and the optimizer takes longer to warm up.
 
-The standard frontier hyperparameters: $\beta_1 = 0.9$, $\beta_2 = 0.95$ (or 0.98 in some configs) instead of the original $\beta_2 = 0.999$, because the lower $\beta_2$ responds faster to recent gradient magnitudes over the millions of steps of a frontier run. $\epsilon = 1 \times 10^{-8}$. Weight decay = 0.1 for the body; some labs (DeepSeek-V3 in particular) use higher values for the embedding.
+The standard frontier hyperparameters: $\beta_1 = 0.9$, $\beta_2 = 0.95$ (or 0.98 in some configs) instead of the original $\beta_2 = 0.999$, because the lower $\beta_2$ responds faster to recent gradient magnitudes over the millions of steps of a frontier run. $\epsilon = 1 \times 10^{-8}$. Weight decay = 0.1; DeepSeek-V3 reports a single `weight_decay = 0.1` and no separate value for the embedding ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#optimizer-and-schedule)).
 
-A small subtlety: the optimizer state ($m$, $v$) is held in **FP32** even when the parameters are in BF16. This is essential. If the optimizer state is in BF16, the $1/\sqrt{v}$ term loses precision in the low-magnitude regime and the model can fail to train. The implementation keeps `m` and `v` in FP32 by allocating them as `torch.zeros_like(p)` where `p` is the FP32 master copy, not the BF16 shadow copy. We cover this in §8.7.
+A small subtlety: the optimizer state ($m$, $v$) is usually held in **FP32** even when the parameters are in BF16. FP32 is the standard default, not a law. The worry is that in BF16 the $1/\sqrt{v}$ term loses precision in the low-magnitude regime, yet DeepSeek-V3 kept both AdamW moments in BF16 "without incurring observable performance degradation" (§8.7). The implementation keeps `m` and `v` in FP32 by allocating them as `torch.zeros_like(p)` where `p` is the FP32 master copy, not the BF16 shadow copy. We cover this in §8.7.
 
 ## 8.4 The learning-rate schedule
 
@@ -151,24 +153,26 @@ def get_lr(step, warmup_steps, peak_lr, total_steps, min_lr):
     coeff = 0.5 * (1.0 + math.cos(math.pi * progress))
     return min_lr + (peak_lr - min_lr) * coeff
 
-# Worked example: DeepSeek-V3-style schedule
+# Worked example (ILLUSTRATIVE): DeepSeek-V3's peak, floor and warmup on a
+# plain cosine. V3 itself holds the LR constant until 10T tokens (see §8.15).
 peak_lr      = 2.2e-4    # peak learning rate
 min_lr       = 2.2e-5    # floor (10% of peak)
-warmup_steps = 2000      # ~0.1% of total
-total_steps  = 1_000_000  # ~14.8T tokens at 4M tokens / step
+warmup_steps = 2000      # ~0.85% of total
+total_steps  = 235_000   # ~14.8T tokens / ~63M tokens per step (our arithmetic)
 ```
 
 The numerical values vary by lab:
 
 | Model | Peak LR | Floor (fraction) | Warmup (fraction) | Total tokens |
 |---|---|---|---|---|
-| Llama 3 8B | $3 \times 10^{-4}$ | 10% | 0.3% | 15.6T |
-| Llama 3 70B | $1.5 \times 10^{-4}$ | 10% | 0.3% | 15.6T |
-| Qwen3 32B (dense) | $2 \times 10^{-4}$ | 10% | 0.5% | ~36T (multi-stage) |
-| DeepSeek-V3 (MoE) | $2.2 \times 10^{-4}$ | 10% | 0.2% | 14.8T |
+| Llama 3 8B | $3 \times 10^{-4}$ | not published | not published | ~15T |
+| Llama 3 70B | $1.5 \times 10^{-4}$ | not published | not published | ~15T |
+| Llama 3 405B | $8 \times 10^{-5}$ | 1% | 8,000 steps (0.7%) | 15.6T |
+| Qwen3 (all sizes) | not published | not published | not published | ~36T (multi-stage) |
+| DeepSeek-V3 (MoE) | $2.2 \times 10^{-4}$ | constant, then cosine to 10%, then 3.3% | 2K steps (~0.85%, our arithmetic) | 14.8T |
 | PaLM 540B | $1 \times 10^{-2}$ (Adafactor scale) | 10% | 0.1% | 0.78T |
 
-The interesting pattern: larger models use *smaller* peak LRs. The intuition is that larger models have smaller optimal per-parameter step sizes. Llama 3 8B uses $3 \times 10^{-4}$; Llama 3 70B uses $1.5 \times 10^{-4}$. Qwen3 235B (MoE) uses $7 \times 10^{-5}$. The µTransfer framework formalizes this in §8.12.
+The interesting pattern: larger models use *smaller* peak LRs. The intuition is that larger models have smaller optimal per-parameter step sizes. Llama 3 8B uses $3 \times 10^{-4}$; Llama 3 70B uses $1.5 \times 10^{-4}$; Llama 3 405B uses $8 \times 10^{-5}$ ([fact sheet](../appendix/fact-sheets/llama-3.md#architecture)). The report gives the floor and warmup only for the 405B. Qwen3 does not publish its learning rates, batch sizes or optimizer settings; it predicts them per model from scaling laws over its three pre-training stages ([fact sheet](../appendix/fact-sheets/qwen3.md#pre-training-stages)). The µTransfer framework formalizes this in §8.12.
 
 A small but important detail: the "fraction of total" warmup numbers above assume the run goes for the full token budget. Many real runs adjust the warmup to be ~2000–5000 steps absolute, because the first few thousand steps are particularly delicate and a longer warmup is cheap insurance.
 
@@ -188,7 +192,7 @@ if wd != 0:
 
 This is equivalent to $w \leftarrow w \cdot (1 - \eta \lambda)$ per step, which accumulates to an exponential decay of $w$ over training. The effective $\ell_2$ regularization strength on the weights is $\lambda$, but the gradient updates are *not* contaminated by the weight-decay term (which is the "decoupled" part).
 
-The standard value is $\lambda = 0.1$. Some labs (DeepSeek-V3, for example) split the weight decay: a higher value (e.g., 0.2) for the embedding and the LM head, and 0.1 for the transformer body. Some labs apply **no** weight decay to the embedding. The lab-specific choices are often unpublished.
+The standard value is $\lambda = 0.1$. DeepSeek-V3 reports a single `weight_decay = 0.1`, with no separate value for the embedding or the LM head ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#optimizer-and-schedule)). Some labs apply **no** weight decay to the embedding. The lab-specific choices are often unpublished.
 
 ## 8.6 Gradient clipping
 
@@ -209,7 +213,7 @@ Why global-norm and not per-parameter? Because the gradients of different parame
 
 Why clip at all? Because gradient spikes — sudden, transient increases in gradient magnitude — can destabilize training. They are caused by rare training examples (very long documents, adversarial web text, MoE routing collapse), by numerical issues, or by hardware glitches. Clipping bounds the worst-case update.
 
-The threshold is the second-most-tuned optimization hyperparameter after the peak LR. Llama 3 uses 1.0. PaLM uses 1.0. Qwen3 uses 1.0. DeepSeek-V3 uses 1.0. The 1.0 default is so universal that any deviation is worth noting.
+The threshold is the second-most-tuned optimization hyperparameter after the peak LR. Llama 3 does not report its threshold ([fact sheet](../appendix/fact-sheets/llama-3.md#training-recipe)). Qwen3 does not report it either ([fact sheet](../appendix/fact-sheets/qwen3.md#pre-training-stages)). PaLM uses 1.0. DeepSeek-V3 uses 1.0 ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#optimizer-and-schedule)). The 1.0 default is so universal that any deviation is worth noting.
 
 The clipping happens **before** the optimizer step. Some implementations also log the unclipped norm for monitoring — a sudden increase in the unclipped norm (with no corresponding loss spike) is an early warning sign of a problem.
 
@@ -245,7 +249,7 @@ The key choices:
 
 - **Master weights in FP32.** The "true" parameters live in FP32. A BF16 copy is made at the start of each forward pass. The AdamW step is computed in FP32 using the FP32 weights, the FP32 optimizer state, and the FP32-cast gradients.
 - **Forward and backward in BF16 (or FP16, see §8.8).** Matmuls are ~8× faster on Tensor Cores in BF16 than in FP32, and activations are 2× smaller, which means less memory traffic and larger effective batch sizes.
-- **Optimizer state in FP32.** The $m$ and $v$ tensors are FP32. This is non-negotiable — the precision of the $1/\sqrt{v}$ term is critical for stability, and BF16's 7-bit mantissa is not enough in the low-magnitude regime.
+- **Optimizer state in FP32.** The $m$ and $v$ tensors are FP32 in the standard recipe. The usual argument is that $1/\sqrt{v}$ is sensitive and BF16's 7-bit mantissa is coarse in the low-magnitude regime. It is a default, not a law. DeepSeek-V3 stored both AdamW moments in **BF16** for its whole 14.8T-token run, "without incurring observable performance degradation", while keeping the master weights and gradients in FP32 ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#precision)). It saves 4 bytes per parameter of optimizer state.
 
 The PyTorch pattern (using `torch.cuda.amp`):
 
@@ -286,7 +290,7 @@ BF16 has the **same dynamic range as FP32** (because the 8-bit exponent is the s
 - **The 7-bit mantissa is enough precision for the matmul accumulation.** Modern Tensor Cores accumulate BF16 matmuls in FP32, so the per-element precision loss in BF16 does not propagate to the final result. The intermediate precision (FP32 accumulator) is what determines the final accuracy.
 - **No loss scaling needed.** Because BF16 does not underflow on small values, the entire `GradScaler` machinery from §8.7 is unnecessary. This simplifies the code and removes a class of bugs.
 
-The 7-bit mantissa caveat: the precision per value is about 1 part in 128. For the parameters and gradients, this is fine. For the **optimizer state** (m, v in Adam), it is not fine — see §8.7. For **layer-norm statistics** (mean, variance, reciprocal standard deviation), it is borderline and most frontier implementations cast the layer-norm inputs to FP32 internally. For the **final cross-entropy**, it is generally fine if a fused kernel does the log-softmax in FP32. DeepSeek-V3 specifically keeps the cross-entropy in FP32 for this reason.
+The 7-bit mantissa caveat: the precision per value is about 1 part in 128. For the parameters and gradients, this is fine. For the **optimizer state** (m, v in Adam), FP32 is the safe default, but DeepSeek-V3 kept both moments in BF16 without observable degradation — see §8.7. For **layer-norm statistics** (mean, variance, reciprocal standard deviation), it is borderline and most frontier implementations cast the layer-norm inputs to FP32 internally. For the **final cross-entropy**, it is generally fine if a fused kernel does the log-softmax in FP32. DeepSeek-V3 keeps its output head in higher precision (BF16 or FP32) rather than FP8 ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#precision)).
 
 BF16 has been the default training precision for frontier transformer training since GPT-3 (2020) and Stable Diffusion (2022). Llama, Qwen, DeepSeek (V1/V2) all use it. The frontier has moved to FP8 starting in 2024 — see §8.9.
 
@@ -294,17 +298,17 @@ BF16 has been the default training precision for frontier transformer training s
 
 FP8 is the next step down in precision. There are two formats:
 
-- **E4M3:** 4 bits of exponent, 3 bits of mantissa. Used for the forward pass and the weight gradients. Has a smaller dynamic range but better precision per value.
-- **E5M2:** 5 bits of exponent, 2 bits of mantissa. Used for the activation gradients, which have a wider dynamic range. Has more range but worse precision.
+- **E4M3:** 1 sign bit, 4 exponent bits, 3 mantissa bits. Smaller dynamic range (max finite value 448), better precision per value.
+- **E5M2:** 1 sign bit, 5 exponent bits, 2 mantissa bits. Wider range (max 57,344), worse precision.
 
-Both formats are unsigned (no sign bit — the value is always positive), which means the negative range is handled by storing 0 and using a sign bit in a higher-precision wrapper, or by storing the value in 2's complement in the lower-precision representation. NVIDIA's FP8 implementation (used in H100s and later) does the latter.
+Both formats are **signed**: 1 + 4 + 3 and 1 + 5 + 2 bits. The common hybrid recipe (Transformer Engine's default) uses E4M3 for the forward pass and E5M2 for gradients in the backward pass, trading precision for range where gradients need it. DeepSeek-V3 is the notable exception, using E4M3 everywhere (below).
 
 The numerical issues are severe. E4M3 has only 3 bits of mantissa, which is about 1 part in 8 precision. A matmul of two E4M3 matrices would, with no protection, produce essentially random output. The fix is **per-tensor** or **per-block scaling factors** that rescale the values to use the available mantissa range. There are two standard scaling strategies:
 
 - **Per-tensor scaling.** Compute the maximum absolute value of the tensor, then scale so the maximum maps to the max representable value. The scale factor is a single FP32 number per tensor.
 - **Per-block / per-tile scaling.** Divide the tensor into blocks of 32 or 128 elements, compute a scale factor per block, and apply per-block. This gives much better dynamic range at the cost of more bookkeeping.
 
-The DeepSeek-V3 paper [\[1\]](../appendix/b-references.md#1-deepseek-v3) uses a finer-grained per-block scheme with 128-element blocks for the activations and the weights, accumulating in FP32. The E4M3 format is used for the forward pass and the weight gradients, and E5M2 for the activation gradients. The matmul outputs are accumulated in FP32. They report that the FP8 training matches BF16 training within noise.
+The DeepSeek-V3 paper [\[1\]](../appendix/b-references.md#1-deepseek-v3) uses a finer-grained scheme: **1×128 tiles** (per token per 128 channels) for activations and **128×128 blocks** for weights. Partial sums are promoted to FP32 on CUDA cores every 128 elements, because the H800's tensor-core FP8 accumulation keeps too few bits. With scaling that fine, V3 uses **E4M3 on all tensors**, including the backward pass, rather than the E4M3/E5M2 hybrid. Validated at two smaller scales over ~1T tokens, FP8's loss stayed within 0.25% (relative) of BF16 ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#precision)).
 
 A minimal FP8 training loop sketch (using Transformer Engine, which is the most widely used library for FP8 in PyTorch):
 
@@ -369,7 +373,7 @@ $$ N^*(C) \approx \left(\frac{C}{a}\right)^{0.5}, \quad D^*(C) \approx \left(\fr
 
 with constants $a, b$ such that $D^* / N^* \approx 20$ across several orders of magnitude.
 
-The practical implication: for a 70B model, you should train on at least 1.4T tokens. For a 7B model, at least 140B tokens. The Llama 1 paper trained the 65B model on 1.4T tokens, which was exactly on the Chinchilla line. The Llama 2 paper trained the 70B on 2T tokens, slightly over-Chinchilla. The Llama 3 paper trained the 70B on 15.6T tokens, **massively** over-Chinchilla — and the result was a much better model. The reason is the topic of the next section.
+The practical implication: for a 70B model, you should train on at least 1.4T tokens. For a 7B model, at least 140B tokens. The Llama 1 paper trained the 65B model on 1.4T tokens, which was exactly on the Chinchilla line. The Llama 2 paper trained the 70B on 2T tokens, slightly over-Chinchilla. The Llama 3 paper trained on a corpus of about 15T tokens ([fact sheet](../appendix/fact-sheets/llama-3.md#pre-training-data)), **massively** over-Chinchilla for the 70B — and the result was a much better model. The reason is the topic of the next section.
 
 ## 8.11 Beyond Chinchilla: data may matter more than parameters
 
@@ -379,13 +383,13 @@ The Chinchilla rule is for *pre-training loss*, not for *downstream task perform
 - For a fixed downstream benchmark, the model can be **smaller** and trained on **more data**, because downstream tasks benefit more from data than from parameters.
 - Frontier labs care about *inference cost*, not just *training cost*, and a model that is 3× cheaper to run can serve 3× more users.
 
-This is why Llama 3 8B is trained on 15.6T tokens (a 1:2000 parameter-to-token ratio, way over Chinchilla) and is a much better model than a Chinchilla-optimal 8B trained on 160B tokens would be. Same for Qwen3, DeepSeek-V3, and the rest of the post-2023 frontier. The "20 tokens per parameter" rule is **wrong** for modern frontier runs, and the labs know it.
+This is why Llama 3 8B is trained on about 15T tokens (roughly 1,900 tokens per parameter, way over Chinchilla) and is a much better model than a Chinchilla-optimal 8B trained on 160B tokens would be. Same for Qwen3, DeepSeek-V3, and the rest of the post-2023 frontier. The "20 tokens per parameter" rule is **wrong** for modern frontier runs, and the labs know it.
 
 The rule of thumb that has replaced Chinchilla in practice is **"train until downstream benchmarks plateau"**, which for an 8B model turns out to be ~10–20T tokens, and for a 70B model ~15–30T tokens. The exact number is lab-specific and not always published.
 
-A second, related finding: for a fixed compute budget, training a **smaller model on more data** and *distilling* it into a larger model can match or exceed the larger model trained directly. This is the basis of the "small models, big data" approach that Qwen3, Llama 3, and DeepSeek-V3 all use for some of their model variants.
+A second, related practice: **distillation** runs from large to small. Qwen3 distils its larger models *into* its smaller ones ("Strong-to-Weak Distillation", [fact sheet](../appendix/fact-sheets/qwen3.md#post-training)). Llama 3 names distillation as "an alternative path" and instead trains its small models "far beyond the point of compute optimal training" (§9.1) [\[5\]](../appendix/b-references.md#5-llama-3). DeepSeek-V3 has no smaller variants.
 
-A third finding: the **annealing** phase (the last 5–10% of training on a higher-quality data subset) provides most of the downstream benchmark gains, not the bulk training. This is the basis of mid-training (Chapter 9).
+A third finding: an **annealing** phase at the end of training, on upsampled high-quality data, can lift benchmark scores out of proportion to its size. Llama 3 anneals over only its final 40M tokens. In its annealing experiments, which put the GSM8k and MATH training sets into the anneal, the 8B model's validation scores on those benchmarks rose by 24.0% and 6.4%, while the gain on the 405B was "negligible" (§3.1.3, §3.4.3) [\[5\]](../appendix/b-references.md#5-llama-3). How much of a model's final quality the anneal accounts for is not published. This is the basis of mid-training (Chapter 9).
 
 ## 8.12 µTransfer: tune on a small model, transfer to a large one
 
@@ -403,7 +407,7 @@ In practice, frontier labs use a hybrid: tune LR, weight init, and Adam epsilon 
 
 The framework also predicts that the optimal LR scales as $1 / \sqrt{N}$ for the embedding and $1/N$ for the hidden weights (where $N$ is the width). This is consistent with the empirical observation that larger models use smaller peak LRs.
 
-A subtlety: the parameterization matters. If the model is not in µP form, the zero-shot transfer does not work. Most frameworks (Megatron-LM, Transformer Engine) provide µP parameterizations of the standard transformer block. The DeepSeek-V3 paper does not explicitly use µTransfer but the per-block learning rate schedule they describe is consistent with the µP framework.
+A subtlety: the parameterization matters. If the model is not in µP form, the zero-shot transfer does not work. Most frameworks (Megatron-LM, Transformer Engine) provide µP parameterizations of the standard transformer block. The DeepSeek-V3 paper does not mention µP or µTransfer, and it describes a single global learning-rate schedule ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#optimizer-and-schedule)).
 
 ## 8.13 Stability tricks: z-loss, QK-norm, monitoring, loss-spike handling
 
@@ -439,8 +443,10 @@ if grad_norm > 5 * grad_norm_ema:
 **Loss-spike handling.** When a loss spike is detected, the standard playbook is one of:
 
 1. **Skip the batch** and continue at the current LR (cheapest, but doesn't prevent the next spike).
-2. **Skip + reduce LR** by a factor (e.g., 0.5–0.8) for the next window of steps. DeepSeek-V3 uses this pattern: skip a window of ~200 batches after a spike, reduce the LR by 50%, resume.
-3. **Roll back to a pre-spike checkpoint** and reduce the LR. Llama 3 uses this for catastrophic spikes. Exact thresholds are unpublished.
+2. **Skip + reduce LR** by a factor (e.g., 0.5–0.8) for the next window of steps.
+3. **Roll back to a pre-spike checkpoint** and reduce the LR. Exact thresholds are rarely published. Llama 3 reports not needing any of these: its 405B run saw "few loss spikes" and needed no interventions to correct divergence ([fact sheet](../appendix/fact-sheets/llama-3.md#training-recipe)).
+
+DeepSeek-V3 is the counterpoint: it reports no irrecoverable spikes and no rollbacks in its whole run, and publishes no spike policy ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#optimizer-and-schedule)).
 
 **Activation recomputation.** Not strictly a stability trick, but tightly coupled: re-computing activations during the backward pass trades compute for memory, enabling larger batch sizes. The Megatron analysis (Korthikanti et al. [\[39\]](../appendix/b-references.md#39-korthikanti-2022-activation-recomputation)) showed that **selective** recomputation (only the linear-layer outputs, not the layer norms or dropouts) recovers most of the memory savings of full recomputation at a small compute cost.
 
@@ -454,9 +460,9 @@ The global batch size is one of the most consequential hyperparameters, and the 
 
 The PaLM paper [\[45\]](../appendix/b-references.md#45-palm-chowdhery-et-al-2022) uses the square-root scaling rule: $\text{LR} = \text{LR}_{\text{base}} \cdot \sqrt{B / B_{\text{base}}}$. The original GPT-3 paper used linear scaling. Modern frontier runs use a mix: linear scaling for the warmup phase, then a fixed LR for the main training.
 
-The DeepSeek-V3 paper uses a constant LR for the bulk of training, with the batch size ramped up from ~2M tokens to ~19M tokens in the first 1.3% of training, then held constant. The Llama 3 paper uses a constant global batch size of ~16M tokens (4M sequences of 4096 tokens) for the 8B and a similar size for the 70B. The Qwen3 paper uses a similar constant batch.
+The DeepSeek-V3 paper uses a constant LR for the first 10T of its 14.8T tokens, with the batch size ramped from 3,072 to 15,360 sequences (~13M to ~63M tokens at 4K) over the first 469B tokens, about 3% of training, then held constant. The Llama 3 paper ramps the 405B batch: 4M tokens at sequence length 4,096, then 8M tokens at 8,192 after 252M tokens, then 16M after 2.87T tokens ([fact sheet](../appendix/fact-sheets/llama-3.md#training-recipe)). It does not give the 8B and 70B batch sizes. The Qwen3 paper gives no batch size.
 
-The critical batch size is a function of the model, the data, and the loss. Frontier labs often use **batch size ramping** — starting at a smaller batch (where the gradient is noisier and the LR scaling is more forgiving) and ramping up to the critical batch over the first 1–2% of training. This is what DeepSeek-V3 does.
+The critical batch size is a function of the model, the data, and the loss. Frontier labs often use **batch size ramping** — starting at a smaller batch (where the gradient is noisier and the LR scaling is more forgiving) and ramping up to the critical batch over the first few percent of training. This is what DeepSeek-V3 does.
 
 A second consideration: **the batch size is also constrained by memory.** The activations scale linearly with batch size × sequence length × hidden dimension, and the optimizer state scales linearly with batch size. At frontier scale, the memory cost of a 16M-token batch is non-trivial. The activation-recomputation trade-off (§8.13) is the main lever.
 
@@ -466,28 +472,32 @@ The published (or strongly inferred) optimization configurations for the four ca
 
 ### DeepSeek-V3
 
-- **Optimizer:** AdamW, $\beta_1 = 0.9$, $\beta_2 = 0.95$, $\epsilon = 1 \times 10^{-8}$, weight decay = 0.1.
-- **Schedule:** warmup over the first 2,000 steps (~0.1% of total), then cosine decay to 10% of peak.
-- **Peak LR:** $2.2 \times 10^{-4}$.
-- **Batch size:** ramps from 2,304 sequences (12M tokens) to 14,400 sequences (73M tokens) in the first 1.3% of training, then constant. The **batch-size ramp** pattern.
-- **Precision:** FP8 (E4M3 for forward/weight gradients, E5M2 for activation gradients) for the bulk of the matmuls; BF16 for the embedding, the final layer norm, the LM head, the cross-entropy, and the MoE router. Master weights in FP32.
+Every value is a row on the [fact sheet](../appendix/fact-sheets/deepseek-v3.md#optimizer-and-schedule).
+
+- **Optimizer:** AdamW, $\beta_1 = 0.9$, $\beta_2 = 0.95$, weight decay = 0.1. Moments in BF16; master weights and gradients in FP32.
+- **Schedule:** linear warmup over 2K steps to $2.2 \times 10^{-4}$; **constant** until 10T tokens; cosine decay to $2.2 \times 10^{-5}$ over 4.3T; then $2.2 \times 10^{-5}$ for 333B tokens and $7.3 \times 10^{-6}$ for the final 167B.
+- **Batch size:** ramps from 3,072 to 15,360 sequences over the first 469B tokens, then constant. The **batch-size ramp** pattern.
+- **Precision:** FP8 **E4M3 on all tensors** for the linear-layer GEMMs, with 1×128 / 128×128 scaling; BF16/FP32 kept for the embedding, output head, MoE gating, normalization and attention.
 - **Gradient clipping:** global norm, threshold 1.0.
-- **Total tokens:** 14.8T. **Stability:** custom loss-spike handling (skip 200 batches, reduce LR by 50%).
+- **Total tokens:** 14.8T. **Stability:** no irrecoverable spikes and no rollbacks reported; no spike policy published.
 
-### Llama 3 (70B)
+### Llama 3 (405B)
 
-- **Optimizer:** AdamW, $\beta_1 = 0.9$, $\beta_2 = 0.95$, $\epsilon = 1 \times 10^{-8}$, weight decay = 0.1.
-- **Schedule:** warmup over 8,000 steps (0.3% of total), then cosine decay to 10% of peak.
-- **Peak LR:** $1.5 \times 10^{-4}$. **Batch size:** ~16M tokens, held constant.
-- **Precision:** BF16 throughout. **Gradient clipping:** 1.0. **Total tokens:** 15.6T.
-- **Critical batch size:** ~4M tokens. Llama 3 trained at ~4× CBS, deliberately over-CBS for stability.
+The report publishes the recipe for the 405B and says the 8B and 70B use "similar recipes" ([fact sheet](../appendix/fact-sheets/llama-3.md#training-recipe)).
+
+- **Optimizer:** AdamW. $\beta_1$, $\beta_2$, $\epsilon$ and weight decay are not reported for this run.
+- **Schedule:** linear warmup over 8,000 steps (0.7% of 1.2M), then cosine decay to $8 \times 10^{-7}$ (1% of peak) over 1,200,000 steps. The last 40M tokens anneal linearly to zero (§9.4).
+- **Peak LR:** $8 \times 10^{-5}$. **Batch size:** ramped 4M → 8M → 16M tokens, at 252M and 2.87T tokens.
+- **Precision:** BF16, with FP32 gradient accumulation. **Gradient clipping:** not reported. **Total tokens:** 15.6T.
+- **Stability:** "few loss spikes", and no interventions to correct divergence.
 
 ### Qwen3 (235B MoE)
 
-- **Optimizer:** AdamW, $\beta_1 = 0.9$, $\beta_2 = 0.95$, $\epsilon = 1 \times 10^{-8}$, weight decay = 0.1.
-- **Schedule:** warmup, then cosine. Multi-stage: pre-training on ~30T tokens, then mid-training on higher-quality data with a smaller LR.
-- **Peak LR:** $7 \times 10^{-5}$ (for the 235B MoE). Smaller dense variants use larger LRs (e.g., $2 \times 10^{-4}$ for 32B).
-- **Batch size:** ~16M–32M tokens, held constant. **Precision:** BF16. **Total tokens:** ~36T.
+Qwen3 does not publish its learning rates, batch sizes or optimizer settings; it predicts them per model from scaling laws over its three pre-training stages ([fact sheet](../appendix/fact-sheets/qwen3.md#pre-training-stages)).
+
+- **Optimizer, warmup, floor, weight decay, clipping, precision:** not published.
+- **Schedule:** three stages: over 30T tokens at 4K context; about 5T higher-quality tokens with "accelerate[d]" learning-rate decay; then hundreds of billions of tokens at 32K.
+- **Peak LR and batch size:** predicted per model from scaling laws; the values are not published. **Total tokens:** ~36T.
 
 ### PaLM (540B)
 
@@ -499,19 +509,19 @@ The published (or strongly inferred) optimization configurations for the four ca
 
 Across the four:
 
-| | DeepSeek-V3 | Llama 3 70B | Qwen3 235B | PaLM 540B |
+| | DeepSeek-V3 | Llama 3 405B | Qwen3 235B | PaLM 540B |
 |---|---|---|---|---|
 | Optimizer | AdamW | AdamW | AdamW | Adafactor |
-| Peak LR | 2.2e-4 | 1.5e-4 | 7e-5 | 1e-2 (Adafactor) |
-| Warmup | 0.1% | 0.3% | 0.5% | 0.1% |
-| Schedule | cosine to 10% | cosine to 10% | cosine to 10% | cosine to 10% |
-| Weight decay | 0.1 | 0.1 | 0.1 | 0.1 |
-| Batch size | 73M (ramped) | 16M (constant) | ~32M (constant) | 4M (ramped) |
-| Precision | FP8 | BF16 | BF16 | BF16 |
+| Peak LR | 2.2e-4 | 8e-5 | not published | 1e-2 (Adafactor) |
+| Warmup | 2K steps | 0.7% | not published | 0.1% |
+| Schedule | constant, then cosine to 2.2e-5 (10%), then 7.3e-6 (3.3%) | cosine to 1% | not published (3 stages) | cosine to 10% |
+| Weight decay | 0.1 | not reported | not published | 0.1 |
+| Batch size | ~63M (ramped from ~13M) | 16M (ramped) | not published | 4M (ramped) |
+| Precision | FP8 | BF16 | not published | BF16 |
 | Total tokens | 14.8T | 15.6T | ~36T | 0.78T |
-| Stability | custom | standard | standard | z-loss |
+| Stability | no irrecoverable spikes, no rollbacks; no policy published | few spikes, no interventions | not published | z-loss |
 
-The takeaway: the schedule shape is universal (warmup + cosine to 10% floor), the weight decay is universal (0.1), the global-norm clip is universal (1.0). The differences are in the peak LR (smaller for bigger models), the batch size (larger for bigger models, but with a critical-batch ceiling), the precision (FP8 for DeepSeek-V3, BF16 for the rest), and the stability tricks (z-loss for PaLM, custom spike handling for DeepSeek-V3).
+The takeaway: warmup followed by a long decay is universal, but the shape of the decay is not (V3 holds its LR constant for two-thirds of the run). Where it is published, weight decay is 0.1 and the global-norm clip 1.0. The differences are in the peak LR (smaller for bigger models), the batch size (larger for bigger models, but with a critical-batch ceiling), the precision (FP8 for DeepSeek-V3, BF16 for Llama 3 and PaLM), and the stability tricks (z-loss for PaLM; DeepSeek-V3 reports no spikes to handle). Qwen3 publishes none of these values.
 
 ## 8.16 What this means in practice
 
@@ -537,9 +547,9 @@ A "Pre-training Researcher" at a frontier lab owns the optimizer, the schedule, 
 ## 8.17 What you should take from this chapter
 
 1. **The loss is cross-entropy, the optimizer is AdamW, the precision is BF16 or FP8.** These are universal across frontier pre-training. The interesting choices are the FP8-vs-BF16 boundary, the stability tricks, and the scaling-law analysis.
-2. **The schedule is warmup + cosine to a 10% floor.** Peak LR is $10^{-4}$ to $10^{-3}$, decreasing with model size. Warmup is 0.1%–1% of training. Weight decay is 0.1, decoupled, applied only to weight matrices.
+2. **The common schedule is warmup + cosine decay to a floor.** The floor is often 10%, but not always: Llama 3 405B decays to 1%, and DeepSeek-V3 holds its LR constant for most of the run before decaying (§8.15). Peak LR is $10^{-4}$ to $10^{-3}$, decreasing with model size. Warmup is 0.1%–1% of training. Weight decay is 0.1, decoupled, applied only to weight matrices.
 3. **Gradient clipping is global-norm, threshold 1.0.** Almost universal.
-4. **Mixed precision is FP32 master / BF16 forward / FP32 optimizer state.** FP8 is the new frontier (DeepSeek-V3, Llama 4+), with E4M3 for forward/weight-grad and E5M2 for activation-grad, per-block scaling, and BF16 retained for the embedding, layer norms, LM head, and cross-entropy.
+4. **Mixed precision is FP32 master / BF16 forward / FP32 optimizer state.** FP8 is the new frontier (DeepSeek-V3, Llama 4+). The common recipe is E4M3 forward and E5M2 backward. DeepSeek-V3 showed that E4M3 everywhere works with fine enough scaling, and that BF16 optimizer moments can replace FP32. The embedding, norms and output head stay in higher precision.
 5. **Chinchilla's "20 tokens per parameter" is wrong for downstream tasks.** Frontier labs train 8B models on 15T tokens (1:2000) and 70B models on 15T tokens (1:200). Data matters more than parameters for downstream quality.
 6. **µTransfer lets you tune on a small model and transfer to a large one.** The framework formalizes why "smaller LR for larger models" works.
 7. **Stability is not free.** z-loss, QK-norm, and loss-spike handling are all part of the standard toolkit. The exact thresholds and the rollback policy are the unpublished parts of any frontier run.
@@ -558,7 +568,7 @@ The next chapter covers mid-training — the domain annealing, long-context, and
 
 - [\[1\] DeepSeek-V3](../appendix/b-references.md#1-deepseek-v3) — DeepSeek-AI, December 2024. The FP8 case study.
 - [\[5\] Llama 3](../appendix/b-references.md#5-llama-3) — Meta AI, July 2024. The BF16 case study.
-- [\[6\] Qwen3](../appendix/b-references.md#6-qwen3) — Qwen Team, 2025. The MoE-on-dense case study.
+- [\[6\] Qwen3](../appendix/b-references.md#6-qwen3) — Qwen Team, 2025. The report that predicts its hyperparameters from scaling laws and publishes none of them.
 - [\[21\] Scaling laws / Chinchilla](../appendix/b-references.md#21-scaling-laws) — Hoffmann et al., 2022. The compute-optimal scaling reference.
 - [\[25\] AdamW](../appendix/b-references.md#25-adamw) — Loshchilov and Hutter, 2019. The decoupled weight decay reference.
 - [\[43\] Beyond Chinchilla (Sardana et al. 2024)](../appendix/b-references.md#43-beyond-chinchilla-sardana-et-al-2024) — arXiv:2401.00448. The inference-aware scaling reference.

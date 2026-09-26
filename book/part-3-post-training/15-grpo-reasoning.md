@@ -2,6 +2,8 @@
 
 > Reading time: ~45 minutes. By the end of this chapter you should understand what GRPO is and how little it differs from RLOO, why the shift to verifiable rewards mattered far more than the algorithm did, what R1-Zero demonstrated about RL without any SFT at all, and which of the "emergent" reasoning behaviours are genuinely emergent versus artifacts of the objective. You should be able to run GRPO and recognize its three characteristic failure modes.
 
+*Current as of early 2025.*
+
 ## 15.1 What actually changed
 
 Between late 2024 and early 2025 the field acquired a capability it had been failing to get for two years: models that reason at length, check their own work, backtrack when they go wrong, and get dramatically better at math and code as a result.

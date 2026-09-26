@@ -2,6 +2,8 @@
 
 > Reading time: ~45 minutes. This is a densely technical chapter; skim it on a first pass if you need to. By the end you should understand the RLHF objective and why it has a KL term, how PPO's clipped surrogate works and what its four-model memory footprint costs, why RLOO deletes the value network and gets away with it, and why a production RLHF system is mostly an inference-serving problem wearing a training-job costume.
 
+*Current as of early 2025.*
+
 ## 13.1 The step from a scorer to a policy
 
 Chapter 12 gave you $r(x, y)$: a function that scores a response. Chapter 11 §11.10 showed the cheapest way to use it — sample $k$ responses, keep the best, retrain. That is rejection sampling, and it works.
@@ -362,7 +364,7 @@ The next chapter takes the opposite approach: DPO, which removes the reward mode
 ---
 
 **Exercises:** [Chapter 13 problem set](../../exercises/ch13.md) — includes the four-model memory budget, a KL-budget design problem, and diagnosing six broken runs from their curves.
-**Lab:** [`lab13_ppo_minimal`](../../labs/lab13_ppo_minimal.py) — PPO and RLOO on the same task, removing one guardrail at a time. Finds that the usual KL coefficient does not restrain the policy at all, that gradient clipping can silently do the trust region's job, and that one corrupted reward in 500 commands ~16% of the batch gradient.
+**Lab:** [`lab13_ppo_minimal`](../../labs/lab13_ppo_minimal.py) — PPO and RLOO on the same task, removing one guardrail at a time. Finds that the usual KL coefficient does not restrain the policy at all, that gradient clipping can silently do the trust region's job, and that one corrupted reward in 500 commands ~17% of the batch gradient.
 
 ---
 

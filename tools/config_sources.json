@@ -1,0 +1,24 @@
+{
+  "_comment": "Published files behind every real-config block. Each source pins a commit of the official repo. 'via' names an ungated mirror to download from when the official repo is gated; fetch_config_snapshots.py refuses the download unless the mirror's bytes hash to the official repo's git blob id at the pinned commit.",
+  "sources": [
+    {
+      "id": "deepseek-v3-tokenizer",
+      "repo": "deepseek-ai/DeepSeek-V3",
+      "revision": "e815299b0bcbac849fa540c768ef21845365c9eb",
+      "files": {"tokenizer": "tokenizer.json", "config": "config.json"}
+    },
+    {
+      "id": "llama-3-tokenizer",
+      "repo": "meta-llama/Meta-Llama-3-8B",
+      "revision": "8cde5ca8380496c9a6cc7ef3a8b46a0372a1d920",
+      "via": {"repo": "NousResearch/Meta-Llama-3-8B", "revision": "315b20096dc791d381d514deb5f8bd9c8d6d3061"},
+      "files": {"tokenizer": "tokenizer.json", "config": "config.json"}
+    },
+    {
+      "id": "qwen3-tokenizer",
+      "repo": "Qwen/Qwen3-235B-A22B",
+      "revision": "8efa61729e24bd65b1d152b5ab5409052aa80e65",
+      "files": {"tokenizer": "tokenizer.json", "config": "config.json"}
+    }
+  ]
+}

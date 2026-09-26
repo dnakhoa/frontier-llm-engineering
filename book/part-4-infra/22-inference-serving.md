@@ -2,6 +2,8 @@
 
 > Reading time: ~40 minutes. By the end of this chapter you should be able to compute a KV cache's size and see immediately why GQA and MLA exist, explain why prefill and decode are opposite workloads, describe what continuous batching and paged attention each fix, and reason about the latency-throughput trade-off that every serving decision sits on. If you are here from Part III: this is the chapter that explains where 60–80% of your RLHF wall-clock went.
 
+*Current as of early 2025.*
+
 ## 22.1 A different problem entirely
 
 Training and serving look like the same computation and they are not.
@@ -50,7 +52,7 @@ $$2 \times 80 \times 64 \times 128 \times 2 = 2.6 \text{ MB per token} \;\Righta
 
 Eight times larger. **This is why GQA exists** [\[20\]](../appendix/b-references.md#20-gqa) — it is a serving decision made at architecture time, and Chapter 5 covers the quality trade-off. Three sequences of MHA cache fill an entire H100.
 
-**DeepSeek's MLA** [\[2\]](../appendix/b-references.md#2-deepseek-v2) goes further: instead of storing K and V per head, store a low-rank latent vector per token and reconstruct at attention time. DeepSeek-V2 reports a KV cache reduction of roughly 93% against its MHA baseline. For V3's configuration the cache is on the order of tens of kilobytes per token rather than hundreds — an order of magnitude below GQA.
+**DeepSeek's MLA** [\[2\]](../appendix/b-references.md#2-deepseek-v2) goes further: instead of storing K and V per head, store a low-rank latent vector per token and reconstruct at attention time. DeepSeek-V2 reports a 93.3% smaller KV cache than DeepSeek 67B, which is itself a GQA model, so the saving is over GQA, not MHA. For V3's configuration the cache is on the order of tens of kilobytes per token rather than hundreds — an order of magnitude below GQA.
 
 The lesson worth carrying: **attention-variant choices are serving-economics choices.** A team that picks MHA for a model it intends to serve at long context has made a decision that will cost far more than the quality difference is worth.
 
@@ -260,7 +262,7 @@ The next chapter is evaluation — how you know any of this worked, why most rep
 ---
 
 **Exercises:** [Chapter 22 problem set](../../exercises/ch22.md) — includes KV-cache sizing across attention variants, a concurrency budget, and a batching-policy design problem under an SLO.
-**Lab:** [`lab22_kv_cache_and_batching`](../../labs/lab22_kv_cache_and_batching.py) — compare static against continuous batching on a heavy-tailed length distribution (3.3×), then build a paged block allocator with refcounted prefix sharing and watch fragmentation fall from 86.9% to 0.7%.
+**Lab:** [`lab22_kv_cache_and_batching`](../../labs/lab22_kv_cache_and_batching.py) — compare static against continuous batching on a heavy-tailed length distribution (5.8×), then build a paged block allocator with refcounted prefix sharing and watch fragmentation fall from 86.5% to 0.7%.
 
 ---
 

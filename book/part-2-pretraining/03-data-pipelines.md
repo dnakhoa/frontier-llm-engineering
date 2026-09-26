@@ -2,6 +2,8 @@
 
 > Reading time: ~35 minutes. This is the deepest chapter on data pipelines you'll find outside an industry lab. By the end, you should be able to read any frontier lab's data card and understand every line.
 
+*Current as of early 2025.*
+
 ## 3.1 Why data is the model
 
 A pre-trained language model is, in a precise sense, a compressed representation of its training data. Given enough parameters and enough training, you can recover surprising amounts of the training data verbatim from the model (Carlini et al., 2021 [\[4\]](../appendix/b-references.md#4-extracting-training-data)). Given less, the model still encodes statistical regularities of the data — facts, reasoning patterns, code idioms, language biases.
@@ -29,7 +31,7 @@ Frontier labs do not just use Common Crawl directly. They typically also crawl a
 - Code-hosting platforms (GitHub, GitLab).
 - Academic sources (arXiv, PubMed, Semantic Scholar).
 
-The volume is enormous. The DeepSeek-V3 paper [\[1\]](../appendix/b-references.md#1-deepseek-v3) reports their pre-training corpus as 14.8T tokens. The Llama-3 paper [\[5\]](../appendix/b-references.md#5-llama-3) reports 15.6T tokens. The Qwen3 paper [\[6\]](../appendix/b-references.md#6-qwen3) reports ~36T tokens (across all stages including pre-training, mid-training, and post-training data). The web is the dominant source for all of these.
+The volume is enormous. The DeepSeek-V3 paper [\[1\]](../appendix/b-references.md#1-deepseek-v3) reports their pre-training corpus as 14.8T tokens. The Llama-3 paper [\[5\]](../appendix/b-references.md#5-llama-3) reports 15.6T tokens. The Qwen3 paper [\[6\]](../appendix/b-references.md#6-qwen3) reports about 36T pre-training tokens, covering 119 languages and dialects ([fact sheet](../appendix/fact-sheets/qwen3.md#pre-training-data)). The web is the dominant source for all of these.
 
 ### 3.2.2 Code
 
@@ -56,7 +58,7 @@ Sources:
 - **Internet Archive** — borrowed book collections.
 - **Smaller curated corpora** (BookCorpus, which is now mostly subsumed by larger sources).
 
-The 2023–2024 trend has been toward more careful book inclusion: smaller volumes, more curation, more attention to source quality. The Llama-3 paper, for example, reports including books from "a larger, more carefully curated corpus" relative to Llama-2.
+The 2023–2024 trend has been toward more careful book inclusion: smaller volumes, more curation, more attention to source quality. The Llama-3 paper is not an example: it names no books source, and it reports its mix by knowledge domain rather than by source ([fact sheet](../appendix/fact-sheets/llama-3.md#pre-training-data)).
 
 ### 3.2.4 Scientific and academic text
 
@@ -70,7 +72,7 @@ The value of academic text is that it is dense, well-written, and contains reaso
 
 ### 3.2.5 Multilingual text
 
-Frontier models are increasingly multilingual. The Qwen models are particularly strong on Chinese; DeepSeek-V3 is heavily bilingual (English + Chinese). Llama-3 supports 8 languages. The data pipeline has language identification at multiple stages.
+Frontier models are increasingly multilingual. The Qwen models are particularly strong on Chinese; DeepSeek-V3's report says its corpus expands multilingual coverage beyond English and Chinese, without publishing a language breakdown ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#data-and-tokenizer)). Llama-3 supports 8 languages. The data pipeline has language identification at multiple stages.
 
 Multilingual sources include:
 - **mC4** (multilingual C4) — a Common Crawl-derived multilingual corpus.
@@ -79,7 +81,7 @@ Multilingual sources include:
 - **Country-specific crawls** (e.g., Chinese web via a different Common Crawl mirror).
 - **Native-language code repositories** (Chinese GitHub, Japanese Qiita).
 
-The data mix is heavily English-weighted even at multilingual-focused labs. DeepSeek-V3's reported mix is roughly 60% English, 30% Chinese, 10% other. Qwen3 is closer to 50/50 English/Chinese. The exact ratios are trade secrets; what is published is the directional split.
+The data mix is heavily English-weighted even at multilingual-focused labs. DeepSeek-V3 publishes no language ratios at all. Qwen3 publishes no language split either, only that its corpus covers 119 languages and dialects ([fact sheet](../appendix/fact-sheets/qwen3.md#pre-training-data)). The exact ratios are trade secrets; at most, a lab publishes the directional split.
 
 ### 3.2.6 Math, instruction data, and synthetic data
 
@@ -108,7 +110,7 @@ Key challenges:
 
 **PDF extraction.** For papers, books, and reports. Tools like `pdftotext` (poppler), `pdfplumber`, `grobid` (for academic PDFs), and modern learned extractors (Nougat, Marker) turn PDFs into structured text. The output quality varies wildly: a clean arXiv paper is easy; a scanned book from 1920 is hard.
 
-The DeepSeek-V3 paper mentions that PDF extraction for academic content was done with a custom pipeline. The Qwen3 paper similarly references custom PDF handling. This is not surprising — extraction quality is a competitive differentiator.
+The Qwen3 paper similarly references custom PDF handling. This is not surprising — extraction quality is a competitive differentiator.
 
 **WARC parsing.** Common Crawl comes in WARC format. Parsing a 300 TiB WARC into individual HTML files is a Hadoop/Spark job in its own right.
 
@@ -135,17 +137,17 @@ This is where the pipeline diverges most between labs, and where most of the ite
 
 These rules are embarrassingly parallel, run on every document, and catch the obvious junk.
 
-**Learned filtering.** A classifier (typically a small model — XGBoost on hand-crafted features, or a 100M–1B parameter transformer) is trained to predict whether a document is "high quality" or "low quality." The training labels come from a small labeled set, often generated by humans or by a strong model (e.g., "rate this document 1-5 for training a language model").
+**Learned filtering.** A classifier (a small model: a linear model on hand-crafted features, fastText, or a small transformer — Llama 3 used fastText and DistilRoberta) is trained to predict whether a document is "high quality" or "low quality." The training labels come from a small labeled set, often generated by humans or by a strong model (e.g., "rate this document 1-5 for training a language model").
 
 A common approach:
 1. Hand-label 50,000 documents on a 1–5 quality scale.
-2. Train a classifier (XGBoost or small transformer) to predict the quality score.
+2. Train a small, fast classifier (a linear model, fastText, or a small transformer) to predict the quality score.
 3. Use the classifier to score every document in the corpus.
 4. Keep only documents above a threshold (often a percentile cutoff).
 
 The classifier is itself trained on outputs from a strong model, which was trained on previous data. This circularity is fine in practice because the strong model has absorbed most of the same quality signal.
 
-The Llama-2 paper introduced a particularly influential approach: train a quality classifier on data labeled by Llama-2 itself, then use it to filter the pre-training corpus. DeepSeek-V3 and Qwen3 use similar approaches.
+The Llama-3 paper describes a particularly influential version: ask Llama 2's chat model whether each document meets written quality requirements, train fast classifiers (fastText and DistilRoberta) on those labels, and filter the pre-training corpus with them ([fact sheet](../appendix/fact-sheets/llama-3.md#pre-training-data)). DeepSeek-V3's report does not describe its quality filtering.
 
 **A worked example.** A real (simplified) quality classifier:
 
@@ -195,9 +197,9 @@ The standard approach:
 3. Within each bucket, compute exact similarity (or Jaccard on the original sets).
 4. Keep one document per cluster of near-duplicates.
 
-This is the basis of the `datasketch` library, and most frontier pipelines have a custom version. The DeepSeek-V3 paper references a custom dedup pipeline; the Llama-3 paper uses a similar approach.
+This is the basis of the `datasketch` library, and most frontier pipelines have a custom version. The DeepSeek-V3 paper says only that its pipeline was "refined to minimize redundancy"; the Llama-3 paper describes its approach in detail.
 
-The threshold is tunable. Llama-2 used a Jaccard threshold of 0.8; DeepSeek-V3 uses a similar range. Lower threshold = more aggressive dedup = less duplication but more risk of dropping legitimately similar documents (e.g., news reports on the same event).
+The threshold is tunable. Llama-2 used a Jaccard threshold of 0.8; DeepSeek-V3 does not publish one. Lower threshold = more aggressive dedup = less duplication but more risk of dropping legitimately similar documents (e.g., news reports on the same event).
 
 **Paragraph-level and sentence-level dedup.** Catches cases where a document is mostly unique but has a large chunk copied from elsewhere. Implemented with suffix arrays or suffix trees on the token stream.
 
@@ -262,7 +264,7 @@ The threshold n is a trade-off. n=8 is conservative (catches exact plagiarism). 
 
 A subtler problem: contamination against *rephrasings* of benchmarks. If a benchmark is rephrased and posted on a forum, the n-gram check misses it. Some labs use embedding-based contamination detection (compute embeddings of benchmark items, find nearest neighbors in the corpus, drop if similarity is high) but this is more expensive and less common.
 
-The Llama-3 paper has a particularly thorough section on contamination, including a discussion of how they re-checked for contamination after every major data update.
+The Llama-3 paper has a particularly thorough section on contamination: an 8-gram overlap analysis of 21 benchmarks, which estimates for each one how much the contamination actually raised the score ([fact sheet](../appendix/fact-sheets/llama-3.md#pre-training-data)).
 
 ### 3.3.6 PII and harmful content filtering
 
@@ -283,7 +285,7 @@ The mix is tuned to:
 - **Match the evaluation distribution.** If most evals are in English, upweight English.
 - **Match the perceived deficits of previous models.** If a previous version was bad at math, upweight math.
 
-The mix is not fixed during the run. Frontier labs monitor validation loss per domain and adjust the mix during the run. The DeepSeek-V3 paper mentions this kind of mid-run adjustment.
+The mix is not fixed during the run. Frontier labs monitor validation loss per domain and adjust the mix during the run. (DeepSeek-V3's report does not describe mid-run mix changes.)
 
 A common tool for this is the **DoReMi** approach (Xie et al., 2023) [\[9\]](../appendix/b-references.md#9-doremi), which uses a small proxy model to find the optimal data mix. The mix is then used for the big run.
 
@@ -297,13 +299,13 @@ The two main families:
 
 **Unigram.** Starts with a large vocabulary and prunes to a target size. Used by SentencePiece, often for multilingual models. Vocabulary size typically 32K–256K.
 
-DeepSeek-V3 uses a BPE tokenizer with a vocabulary of 128K, optimized for English and Chinese. Qwen3 uses a similar BPE tokenizer. Llama-3 uses a BPE tokenizer with 128K tokens, with special tokens for function calling and code.
+DeepSeek-V3 uses a byte-level BPE tokenizer with a vocabulary of 128K, tuned for "multilingual compression efficiency". Qwen3 uses a similar BPE tokenizer. Llama-3 uses a BPE tokenizer with 128K tokens, with special tokens for function calling and code.
 
 The tokenizer is trained on a representative sample of the training corpus. A bad tokenizer choice is a problem that cannot be fixed later — you cannot easily re-tokenize a model. Chapter 4 covers tokenization in detail.
 
 ### 3.3.9 Packing and shuffling
 
-The training data loader streams pre-tokenized text, shuffles it, and packs it into fixed-length sequences (e.g., 4096 tokens per sequence, with a smaller effective length if the original documents are shorter). The packing is done with attention masks that prevent cross-document attention (so the model does not learn to attend to the boundary between two documents).
+The training data loader streams pre-tokenized text, shuffles it, and packs it into fixed-length sequences (e.g., 4096 tokens per sequence, with a smaller effective length if the original documents are shorter). Labs differ on whether packed documents can attend to each other. Llama 3 masks attention across document boundaries, and reports that the mask had limited impact in standard pre-training but mattered for continued pre-training on very long sequences [\[5\]](../appendix/b-references.md#5-llama-3). DeepSeek-V3 packs documents without cross-sample attention masking ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#data-and-tokenizer)).
 
 A real data loader in pseudocode:
 
@@ -354,28 +356,30 @@ A run that takes 60 days at the training stage might take 2–4 weeks at the dat
 Concrete numbers, where the labs have published them:
 
 **DeepSeek-V3 [\[1\]](../appendix/b-references.md#1-deepseek-v3):**
-- 14.8T training tokens.
-- Data mix: heavily English and Chinese, with code, math, and multilingual.
-- Custom dedup pipeline, custom quality filtering.
-- PDF extraction for academic content.
+- 14.8T training tokens ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#data-and-tokenizer)).
+- Data mix: more math and code than DeepSeek-V2, and multilingual coverage beyond English and Chinese. No ratios published.
+- Redundancy minimized; dedup and filtering methods not published.
+- Document packing without cross-sample masking; fill-in-the-middle on 10% of documents.
 
 **Llama-3 [\[5\]](../appendix/b-references.md#5-llama-3):**
-- 15.6T training tokens (for the 8B model, which was trained on more than Llama-2's 1.8T).
-- Data mix: ~50% English web, ~25% code, ~10% multilingual, ~7.5% academic, ~7.5% "other."
-- Heuristic filters (Llama-2-style) + learned quality classifier (Llama-2-based).
-- Aggressive dedup with MinHash and suffix arrays.
-- Detailed contamination check against 32 benchmarks.
+- About 15T training tokens, against Llama-2's 1.8T; the 405B flagship saw 15.6T.
+- Data mix: roughly 50% general knowledge, 25% math and reasoning, 17% code, 8% multilingual.
+- Heuristic filters + learned quality classifiers trained on Llama-2 labels.
+- Dedup at three levels: URL, document (global MinHash) and line. No suffix arrays.
+- Contamination analysis (8-gram overlap) reported for 21 benchmarks.
+
+Every number here is on the [Llama 3 fact sheet](../appendix/fact-sheets/llama-3.md#pre-training-data).
 
 **Qwen3 [\[6\]](../appendix/b-references.md#6-qwen3):**
-- ~36T total tokens across all training stages.
-- Data mix: ~50/50 English/Chinese, with code, math, and multilingual.
+- ~36T pre-training tokens over three stages, in 119 languages and dialects; no language split is published ([fact sheet](../appendix/fact-sheets/qwen3.md#pre-training-data)).
+- Data mix: web, code, STEM, reasoning, books, multilingual and synthetic data, with trillions of tokens of PDF text extracted by Qwen2.5-VL.
 - Custom quality classifier.
-- Aggressive dedup.
+- Dedup method not published.
 
 **DeepSeek-R1 [\[10\]](../appendix/b-references.md#10-deepseek-r1):**
 - Base model is DeepSeek-V3 (so 14.8T pre-training tokens).
 - SFT data: 600K high-quality reasoning examples, plus 200K non-reasoning.
-- RL data: 600K reasoning prompts, plus preference data.
+- RL data: the arXiv report gives no prompt counts.
 - Heavy use of synthetic data: reasoning traces generated by the model itself, filtered for correctness.
 
 The takeaway: the data is the model, and the data is large, multi-stage, and continuously iterated.
@@ -420,7 +424,7 @@ A pre-training data engineer at a frontier lab is not doing pandas on a CSV. The
 1. **Data is the model.** A frontier pre-training corpus is built through a 10-stage pipeline that takes weeks and processes petabytes.
 2. **The pipeline is a distributed system.** It runs on a Ray or Spark cluster, with all the operational concerns of a production system.
 3. **Quality filtering is a model, not a heuristic.** Frontier labs train classifiers to predict document quality, and the classifiers are themselves trained on outputs from strong models.
-4. **Dedup is multi-granularity and aggressive.** Document-level MinHash, paragraph-level dedup, token-level suffix arrays. The Llama-2/3 paper showed that aggressive dedup dramatically improves model quality.
+4. **Dedup is multi-granularity and aggressive.** Document-level MinHash, paragraph-level dedup, token-level suffix arrays. Llama 3 used URL, document and line levels, and reports that its aggressive line-level pass gave strong improvements ([fact sheet](../appendix/fact-sheets/llama-3.md#pre-training-data)).
 5. **Contamination is a first-class concern.** Every benchmark you care about gets n-gram overlap checked against the corpus.
 6. **The mix is iterated during the run.** Frontier labs adjust the data mix based on validation loss curves.
 
@@ -438,7 +442,7 @@ The next chapter covers tokenization in more detail, including the BPE / Unigram
 - [\[1\] DeepSeek-V3 Technical Report](../appendix/b-references.md#1-deepseek-v3) — DeepSeek-AI, December 2024. Source for the 14.8T-token pre-training corpus.
 - [\[4\] Extracting Training Data from Large Language Models](../appendix/b-references.md#4-extracting-training-data) — Carlini et al., 2021. Why verbatim memorisation makes corpus contents a privacy question, not only a quality one.
 - [\[5\] Llama 3 Herd of Models](../appendix/b-references.md#5-llama-3) — Meta AI, July 2024. Source for the 15.6T-token corpus and the data-filtering description.
-- [\[6\] Qwen3 Technical Report](../appendix/b-references.md#6-qwen3) — Qwen Team, 2025. Source for the ~36T tokens across all training stages.
+- [\[6\] Qwen3 Technical Report](../appendix/b-references.md#6-qwen3) — Qwen Team, 2025. Source for the ~36T-token, 119-language pre-training corpus.
 - [\[7\] MinHash](../appendix/b-references.md#7-minhash) — Broder. The signature scheme behind document-level near-duplicate detection, implemented from scratch in this chapter's lab.
 - [\[8\] Deduplicating Training Data Makes Language Models Better](../appendix/b-references.md#8-deduplicating-training-data) — Lee et al., 2022. The result that aggressive token-level dedup improves model quality.
 - [\[9\] DoReMi](../appendix/b-references.md#9-doremi) — Xie et al., 2023. Using a small proxy model to choose the data mixture.

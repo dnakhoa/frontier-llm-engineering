@@ -2,6 +2,8 @@
 
 > Reading time: ~50 minutes. This is the deepest chapter on transformer architecture you'll find outside an industry architecture team. By the end, you should be able to read any frontier-lab technical report and understand every architectural choice in it — and to explain why MLA, DeepSeekMoE, and RoPE exist at all.
 
+*Current as of early 2025.*
+
 ## 5.1 The mental model
 
 The transformer is ten years old. It has been refined, compressed, and stretched in every direction, but the structure is unchanged: stacked layers of attention and position-wise MLPs, with residuals and norms in between. The frontier work of 2024–2025 is not about new high-level ideas; it is about which of the dozen well-known variants to use, at what scale, with what trade-off. The architecture choices that distinguish a Llama-3 from a DeepSeek-V3 from a Qwen3-MoE are not inventions — they are selections and tunings of pieces that have all been on the shelf since 2020–2023.
@@ -204,7 +206,7 @@ $$
 
 where $W^{DKV} \in \mathbb{R}^{d_c \times d_\text{model}}$, $W^{UK}, W^{UV} \in \mathbb{R}^{(H \cdot d_h) \times d_c}$, and the KV cache stores only $\mathbf{c}_t$ of dimension $d_c$ per token.
 
-For DeepSeek-V3's $d_c = 512$ vs the equivalent GQA at $H \cdot d_h = 128 \cdot 128 = 16384$, the KV cache reduction is roughly $16384/512 = 32\times$ — the DeepSeek team reports a $93.3\%$ reduction vs MHA on a 128K context.
+For DeepSeek-V3, MLA caches $d_c + d_h^R = 512 + 64 = 576$ values per token per layer, against $2 \times 128 \times 128 = 32{,}768$ for full MHA with the same heads: about 57× smaller (our arithmetic; [fact sheet](../appendix/fact-sheets/deepseek-v3.md#architecture)). The often-quoted 93.3% is a different comparison: DeepSeek-V2's KV cache against **DeepSeek 67B**, a GQA model [\[2\]](../appendix/b-references.md#2-deepseek-v2).
 
 MLA's catch: to recover quality, the K vectors need a *positional* component that is not absorbed into the latent. DeepSeek-V2/V3 handle this by adding a small per-head positional vector $\mathbf{k}_t^R = W^{KR} \mathbf{h}_t$ (decoupled from the latent) that is concatenated with the latent-derived K during attention. This keeps RoPE working without blowing up the cache.
 
@@ -397,7 +399,7 @@ with $\text{SiLU}(x) = x \cdot \sigma(x)$ (a.k.a. Swish), and $\odot$ the elemen
 
 The gating mechanism is the key: the up projection produces the "content," the gate projection produces a learned per-channel multiplier, and the elementwise product selects which channels pass through. The gate learns to suppress irrelevant features and amplify relevant ones, in a more flexible way than a single activation can.
 
-The FFN block has three parameter matrices instead of two, so to keep the parameter count constant, the hidden dimension $d_\text{ff}$ is reduced by a factor of $2/3$ (rounded to a multiple of 256 for kernel efficiency). The standard rule of thumb is $d_\text{ff} = \frac{8}{3} d_\text{model}$ rounded to a hardware-friendly multiple. For Llama-3-70B with $d_\text{model} = 8192$, that gives $d_\text{ff} \approx 28672$ (the published value).
+The FFN block has three parameter matrices instead of two, so to keep the parameter count constant, the hidden dimension $d_\text{ff}$ is reduced by a factor of $2/3$ (rounded to a multiple of 256 for kernel efficiency). The standard rule of thumb is $d_\text{ff} = \frac{8}{3} d_\text{model}$ rounded to a hardware-friendly multiple. For Llama-3-70B with $d_\text{model} = 8192$, the rule gives $d_\text{ff} \approx 21{,}845$. The published value is 28,672, which is $3.5 \times d_\text{model}$: Llama 3 runs a wider FFN than the rule of thumb, at every size ([fact sheet](../appendix/fact-sheets/llama-3.md#architecture)). The rule is a starting point, not a law.
 
 SwiGLU has won. Every Llama, Qwen, DeepSeek, Mistral, and Gemma uses SwiGLU (or the close variant GeGLU, which uses GeLU instead of SiLU). The quality win over GeLU FFN is small but consistent — a few percent on standard evals. The parameter overhead is the only cost, and that is recouped by the smaller $d_\text{ff}$.
 
@@ -492,7 +494,7 @@ The compute-vs-parameter trade-off:
 | Dense FFN | $3 d_\text{model} d_\text{ff}$ | $3 d_\text{model} d_\text{ff}$ | $3 d_\text{model} d_\text{ff}$ |
 | MoE, $N$ experts, top-$k$ | $3 N d_\text{model} d_\text{ff}$ | $3 k d_\text{model} d_\text{ff}$ | $3 k d_\text{model} d_\text{ff}$ |
 
-For Mixtral-8x7B with $N=8, k=2$, the total parameters are $8 \times$ the active parameters; the FLOPs per token are $2/8 = 1/4$ of what a dense model with the same total parameters would use. This is the core reason MoE dominates for serving: you get the *capacity* of a 47B model (Mixtral's total parameter count) at the *latency* of a ~13B model.
+For Mixtral-8x7B with $N=8, k=2$, the expert parameters are $N/k = 4 \times$ the active expert parameters (overall, 47B total against 13B active, because attention and embeddings are shared; see the [fact sheet](../appendix/fact-sheets/mixtral.md#context-and-parameters)); the expert FLOPs per token are $2/8 = 1/4$ of what a dense model with the same total parameters would use. This is the core reason MoE dominates for serving: you get the *capacity* of a 47B model (Mixtral's total parameter count) at the *latency* of a ~13B model.
 
 The catch is **routing** — the all-to-all collective that sends each token to its assigned expert. In a 256-expert MoE split across 8 GPUs, the all-to-all bandwidth dominates the wall time, which is why DeepSeek built a custom collective (DeepEP) and a custom pipeline schedule (DualPipe) to hide it. We cover the systems side in Chapter 6.
 
@@ -512,7 +514,7 @@ Two more concepts from the Switch paper that have become standard:
 
 **Expert capacity.** Each expert processes at most $\lceil k \cdot N / E \cdot C \rceil$ tokens per batch, where $N$ is the number of tokens, $E$ is the number of experts, $k$ is top-$k$, and $C$ is a capacity factor (typically 1.0 to 1.25). If more than $C$ tokens are routed to an expert, the overflow tokens are **dropped** — they pass through with the residual only and no expert contribution. This bounds memory and prevents expert overload, but is a source of quality loss for imbalanced routing.
 
-The general top-$k$ MoE (Mixtral uses $k=2$) is more expressive than Switch and recovers the quality loss of $k=1$. Mixtral [\[37\]](../appendix/b-references.md#37-mixtral-of-experts) was the public landmark: 8 experts, top-2, with the standard Switch-style auxiliary loss, trained on a standard corpus, and the resulting model matched Llama-2-70B quality at the inference cost of a ~13B model.
+The general top-$k$ MoE (Mixtral uses $k=2$) is more expressive than Switch and recovers the quality loss of $k=1$. Mixtral [\[37\]](../appendix/b-references.md#37-mixtral-of-experts) was the public landmark: 8 experts, top-2 (its paper does not describe its load-balancing loss), and the resulting model matched Llama-2-70B quality at the inference cost of a ~13B model.
 
 The aux-loss implementation is the `_aux_loss` method in the `MoEBlock` class above.
 
@@ -628,7 +630,7 @@ The DeepSeek team also observed that the shared expert absorbs a non-trivial fra
 
 Several other MoE designs are deployed at scale; the frontier has not converged on a single design.
 
-**Mixtral 8x7B [\[37\]](../appendix/b-references.md#37-mixtral-of-experts).** 8 experts, top-2, standard Switch-style auxiliary loss. 47B total parameters, 13B active. The reference "obvious MoE" design — the one most teams copy when they want an MoE without the engineering overhead of DeepSeekMoE.
+**Mixtral 8x7B [\[37\]](../appendix/b-references.md#37-mixtral-of-experts).** 8 experts, top-2; the paper does not describe its load-balancing loss ([fact sheet](../appendix/fact-sheets/mixtral.md)). 47B total parameters, 13B active. The reference "obvious MoE" design — the one most teams copy when they want an MoE without the engineering overhead of DeepSeekMoE.
 
 **Grok-1.** 8 experts, top-2, ~314B total parameters. xAI published a model card but limited architectural detail; Grok-2 and Grok-3 use a more refined design that has not been fully published.
 
@@ -636,7 +638,7 @@ Several other MoE designs are deployed at scale; the frontier has not converged 
 
 **Snowflake Arctic.** A dense + MoE hybrid: a 10B dense transformer plus a 480B MoE residual expert layer. The dense backbone does most of the work and the MoE layer adds capacity where needed. Full details are in the Arctic model card.
 
-**Qwen3 MoE.** The Qwen3 family includes both dense and MoE variants; the MoE versions use a design similar to DeepSeekMoE with fine-grained experts and shared experts. We see the specific configuration in §5.14.
+**Qwen3 MoE.** The Qwen3 family includes both dense and MoE variants; the MoE versions use fine-grained experts like DeepSeekMoE, but with no shared expert and a global-batch load-balancing loss ([fact sheet](../appendix/fact-sheets/qwen3.md#architecture-qwen3-235b-a22b)). We see the specific configuration in §5.14.
 
 The common thread: fine-grained experts ($E \geq 16$), top-$k$ with $k \geq 2$, either an auxiliary loss or a bias-based balancer, often a shared expert. The frontier has moved away from the "8 experts, top-1" Switch design toward higher $E$ and $k$.
 
@@ -644,15 +646,15 @@ The common thread: fine-grained experts ($E \geq 16$), top-$k$ with $k \geq 2$, 
 
 The standard training objective is next-token prediction: at each position $t$, predict the token at $t+1$. The loss is the cross-entropy of the predicted distribution against the true token.
 
-**Multi-Token Prediction (MTP)**, introduced in DeepSeek-V3 [\[1\]](../appendix/b-references.md#1-deepseek-v3), extends this to predicting the next $D$ tokens at each position. The model has $D$ additional output heads, each predicting the token at $t+1, t+2, \ldots, t+D$. The total loss is the sum of the $D$ cross-entropies, scaled by a small weight per head.
+**Multi-Token Prediction (MTP)**, proposed by Gloeckle et al. (2024) and adopted at frontier scale in DeepSeek-V3 [\[1\]](../appendix/b-references.md#1-deepseek-v3), extends this to predicting several future tokens at each position. In Gloeckle et al.'s form, the model has $D$ additional output heads on a shared trunk, predicting the tokens at $t+2, \ldots, t+D+1$ in parallel. The total loss is the sum of the $D$ cross-entropies, scaled by a small weight per head.
 
 The intuition:
 
 - The main next-token prediction is "easy" in the sense that the model can use a lot of local context. Predicting the second, third, and fourth next tokens forces the model to maintain a richer internal representation of the upcoming sequence.
-- The additional heads are cheap — each is a single linear layer. The main cost is the extra forward pass through the shared trunk.
-- At inference, only the first head is used; the rest are discarded. So MTP is a training-time-only change.
+- The heads can be cheap or not. In the simplest form each is one output layer; Gloeckle et al. use a transformer layer per head. DeepSeek-V3's single MTP module is a full Transformer block with an MoE FFN, **14B parameters** ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#architecture)).
+- At inference the extra heads can be discarded, making MTP a training-time change, or kept as a built-in draft for speculative decoding.
 
-The DeepSeek-V3 report claims MTP improves benchmark performance by 1–2% on most evals at negligible training cost. The MTP heads also serve a role in speculative decoding: the second-next-token prediction can be used as a draft model for the main model, accelerating inference by 1.5–2x.
+DeepSeek-V3 differs from the parallel-heads form in one important way. Its MTP module is **sequential**: to predict $t+2$ it combines the main model's state at $t$ with the embedding of the true token $t+1$, which keeps the causal chain. Its report shows gains from MTP in ablations at two scales, and 85–90% second-token acceptance with **1.8× tokens per second** when the module is used for speculative decoding.
 
 The MTP loss in code:
 
@@ -695,7 +697,7 @@ def mtp_loss(
     return main_loss + mtp_weight * mtp_loss_total
 ```
 
-A common configuration in DeepSeek-V3: $D = 1$ extra head (predicting the second-next token), MTP weight 0.3. Some other implementations use $D = 3$ with lower per-head weights.
+The code above is the simple parallel-heads form. DeepSeek-V3 uses depth $D = 1$ with a sequential module rather than an independent head, and an MTP weight of 0.3 for the first 10T tokens and 0.1 after ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#architecture)).
 
 ## 5.13 Long-context extensions
 
@@ -722,7 +724,7 @@ The simplest extension scales the RoPE frequencies by a factor $s$: $\theta_i = 
 - **128K–1M**: hybrid attention, or a separate long-context training stage with full attention on long sequences.
 - **>1M**: only a few models (Gemini 1.5 Pro) have demonstrated this; the cost is extreme.
 
-DeepSeek-V3 was trained at 4K and extended to 128K via YaRN. Llama-3 was trained at 8K and extended to 128K. Qwen3 ships a 128K variant directly trained at that context length. Mixtral-8x7B is a 32K-context model.
+DeepSeek-V3 was trained at 4K and extended to 128K via YaRN. Llama-3 was trained at 8K and extended to 128K. Qwen3 was pre-trained at 4K and then 32K, raising the RoPE base with ABF, and reaches 128K only at inference with YaRN and Dual Chunk Attention ([fact sheet](../appendix/fact-sheets/qwen3.md#pre-training-stages)). Mixtral-8x7B was trained at 32K ([fact sheet](../appendix/fact-sheets/mixtral.md#context-and-parameters)).
 
 ## 5.14 Specific frontier configurations
 
@@ -733,15 +735,15 @@ Let us put it all together with the actual configurations of the four case-study
 From the V3 technical report [\[1\]](../appendix/b-references.md#1-deepseek-v3):
 
 - **Total parameters**: 671B. **Active per token**: 37B.
-- **Layers**: 60.
+- **Layers**: 61; the first 3 have dense FFNs, the other 58 are MoE.
 - **Hidden dim**: 7168.
-- **Attention**: MLA with $d_c = 512$ (KV latent), $d_c' = 1536$ (Q latent), 128 attention heads, head dim 128. Per-layer KV cache per token: $2 \cdot d_c = 1024$ numbers.
+- **Attention**: MLA with $d_c = 512$ (KV latent), $d_c' = 1536$ (Q latent), 128 attention heads, head dim 128, and a 64-dimensional decoupled RoPE key. Per-layer KV cache per token: $d_c + d_h^R = 512 + 64 = 576$ numbers.
 - **MoE**: 256 routed experts, 1 shared expert, top-8 routing. Each expert: $d_\text{ff} = 2048$. Bias-based auxiliary-loss-free balancing.
-- **MTP**: 1 extra prediction head, weight 0.3.
+- **MTP**: depth 1, as a sequential module (one Transformer block, 14B parameters); loss weight 0.3, then 0.1.
 - **Context**: trained at 4K, extended to 128K via YaRN.
-- **Precision**: FP8 (E4M3 for forward/weight gradients, E5M2 for activation gradients), with BF16 retained for embedding and final output.
+- **Precision**: FP8 E4M3 on all tensors for the linear-layer GEMMs, with fine-grained scaling; BF16/FP32 retained for the embedding, output head, gating, norms and attention ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#precision)).
 
-The MLA cache size: $60 \text{ layers} \cdot 1024 \text{ numbers} \cdot 2 \text{ bytes (BF16)} \cdot 128K \text{ tokens} \approx 15 \text{ GB}$ per sequence. For comparison, the equivalent GQA at 8 KV heads would be $60 \cdot 2 \cdot 8 \cdot 128 \cdot 2 \cdot 128K \approx 30 \text{ GB}$ per sequence — a 2x difference, and a much larger difference if the GQA ratio were 1:1 (MHA) instead of 8:1.
+The MLA cache size: $61 \text{ layers} \cdot 576 \text{ numbers} \cdot 2 \text{ bytes (BF16)} \cdot 131{,}072 \text{ tokens} \approx 9.2 \text{ GB}$ per 128K-token sequence. For comparison, GQA at 8 KV heads on the same model would be $61 \cdot 2 \cdot 8 \cdot 128 \cdot 2 \cdot 131{,}072 \approx 33 \text{ GB}$, 3.6× more. Full MHA over all 128 heads would be about 524 GB, roughly 57× more ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#architecture)).
 
 ### 5.14.2 Llama-3-70B
 
@@ -751,45 +753,45 @@ From the Llama 3 report [\[5\]](../appendix/b-references.md#5-llama-3):
 - **Layers**: 80.
 - **Hidden dim**: 8192.
 - **Attention**: GQA with 64 query heads, 8 KV heads. Head dim 128. KV cache per token per layer: $2 \cdot 8 \cdot 128 = 2048$ numbers.
-- **FFN**: SwiGLU, $d_\text{ff} = 28672$ ($= 8/3 \cdot 8192 \cdot \text{round-to-256}$).
+- **FFN**: SwiGLU, $d_\text{ff} = 28672$ ($= 3.5 \cdot 8192$, wider than the $8/3$ rule of §5.7; [fact sheet](../appendix/fact-sheets/llama-3.md#architecture)).
 - **Normalization**: RMSNorm, pre-norm.
 - **Position encoding**: RoPE, base $\theta = 500000$ (extended base for better length extrapolation).
-- **Context**: trained at 8K, extended to 128K via RoPE scaling + fine-tune.
-- **Precision**: BF16 mixed precision; FP8 was not used in the original Llama-3 release (added in some Llama-3.1 variants).
+- **Context**: trained at 8K, then extended to 128K by continued pre-training in six stages, about 800B tokens ([fact sheet](../appendix/fact-sheets/llama-3.md#long-context-and-annealing)).
+- **Precision**: BF16 mixed precision, with FP32 gradient accumulation. FP8 appears in the report only as a quantization for 405B *inference*, not in training ([fact sheet](../appendix/fact-sheets/llama-3.md#training-recipe)).
 
 Llama-3-70B is the canonical "GQA + SwiGLU + RMSNorm + RoPE" dense configuration. If you read any open-source dense model paper from late 2023 onward, it almost certainly uses the same building blocks, sometimes with the head/KV-head ratio tuned.
 
 ### 5.14.3 Qwen3 (MoE variant)
 
-From the Qwen3 report [\[6\]](../appendix/b-references.md#6-qwen3):
+From the Qwen3 report [\[6\]](../appendix/b-references.md#6-qwen3) and the published `config.json`; every value is on the [Qwen3 fact sheet](../appendix/fact-sheets/qwen3.md#architecture-qwen3-235b-a22b):
 
 - **Total parameters**: 235B (Qwen3-235B-A22B). **Active per token**: 22B.
 - **Layers**: 94.
 - **Hidden dim**: 4096.
 - **Attention**: GQA with 64 query heads, 4 KV heads. Head dim 128.
-- **MoE**: 128 routed experts, no shared expert, top-8 routing. Each expert: $d_\text{ff} = 12288$. Standard auxiliary loss with low weight.
+- **MoE**: 128 routed experts, no shared expert, top-8 routing, in all 94 layers. Each expert: $d_\text{ff} = 1536$ (`moe_intermediate_size`; the config's `intermediate_size` of 12,288 sizes a dense FFN, which this model does not have). A global-batch load-balancing loss.
 - **Normalization**: RMSNorm.
 - **FFN activation**: SwiGLU.
-- **Position encoding**: RoPE with dual base (separate bases for half the dimensions each).
-- **Context**: trained at 32K directly, no extension needed.
+- **Position encoding**: RoPE with a single base, raised from 10,000 to 1,000,000 with ABF during the long-context stage.
+- **Context**: pre-trained at 4K (S1, S2), then 32K (S3); 128K at inference via YaRN and Dual Chunk Attention ([stages](../appendix/fact-sheets/qwen3.md#pre-training-stages)).
 
-The Qwen3 MoE is a fine-grained design similar in spirit to DeepSeekMoE (many small experts, top-$k > 1$) but without the shared expert and using the standard auxiliary loss rather than bias-based balancing. The team has noted that the bias-based approach is on their roadmap; the 2025 release used the standard recipe.
+The Qwen3 MoE is a fine-grained design similar in spirit to DeepSeekMoE (many small experts, top-$k > 1$): each expert is only $1536 / 4096 = 0.375$ of the model width. It differs in two choices. It has no shared expert, and it balances load with a global-batch load-balancing loss, which the report adopts to encourage expert specialization. It does not use DeepSeek's bias-based balancing.
 
 ### 5.14.4 Mixtral-8x7B
 
-From the Mixtral paper [\[37\]](../appendix/b-references.md#37-mixtral-of-experts):
+From the Mixtral paper [\[37\]](../appendix/b-references.md#37-mixtral-of-experts) and the published `config.json`; see the [Mixtral fact sheet](../appendix/fact-sheets/mixtral.md#architecture):
 
 - **Total parameters**: 46.7B. **Active per token**: 12.9B.
 - **Layers**: 32.
 - **Hidden dim**: 4096.
-- **Attention**: Standard MHA with 32 heads, head dim 128. (Note: *not* GQA — Mixtral uses the original MHA, which is unusual for a 2024 frontier model. The choice was made for simplicity and quality; the inference cost is higher than a GQA Mixtral would be.)
-- **MoE**: 8 experts, top-2 routing. Each expert: $d_\text{ff} = 14336$. Standard Switch-style auxiliary loss.
+- **Attention**: GQA with 32 query heads and 8 KV heads, head dim 128, so four query heads share each KV head. KV cache per token per layer: $2 \cdot 8 \cdot 128 = 2048$ numbers.
+- **MoE**: 8 experts, top-2 routing. Each expert: $d_\text{ff} = 14336$. The paper does not describe its load-balancing loss; the released config carries an auxiliary-loss coefficient (`router_aux_loss_coef` 0.02).
 - **Normalization**: RMSNorm.
 - **FFN activation**: SwiGLU.
 - **Position encoding**: RoPE, base $\theta = 1000000$.
-- **Context**: 32K (extended from initial 8K training via RoPE scaling).
+- **Context**: 32K, the length it was trained at; the paper describes no shorter first stage ([fact sheet](../appendix/fact-sheets/mixtral.md#context-and-parameters)).
 
-Mixtral-8x7B is the reference "8-expert top-2" design. It is not the most efficient frontier MoE (GQA + fine-grained experts + shared expert would do better), but it is the cleanest illustration of how the standard MoE recipe works in production. Most open-source MoE models that have shipped since 2024 are either Mixtral clones or DeepSeekMoE-flavored variants.
+Mixtral-8x7B is the reference "8-expert top-2" design. It is not the most efficient frontier MoE (fine-grained experts + a shared expert would do better), but it is the cleanest illustration of how the standard MoE recipe works in production. Most open-source MoE models that have shipped since 2024 are either Mixtral clones or DeepSeekMoE-flavored variants.
 
 ## 5.15 The trade-off matrix
 
@@ -817,7 +819,7 @@ The frontier is converging on: MLA or GQA for attention, RoPE for position, RMSN
 3. **RoPE has won the position-encoding war.** The relative-position inductive bias, the multi-scale frequency structure, and the ease of extension (linear, NTK, YaRN) make it the default.
 4. **RMSNorm and SwiGLU are the modern defaults.** LayerNorm and GeLU survive in older checkpoints; new models use RMSNorm and SwiGLU. The quality wins are small but consistent, and the compute wins are non-trivial.
 5. **MoE dominates for serving.** Fine-grained experts + a shared expert + bias-based auxiliary-loss-free balancing is the current frontier pattern (DeepSeekMoE). Standard top-$k$ with auxiliary loss is the simpler alternative (Mixtral). Both are deployed at scale.
-6. **MTP is a near-free quality win.** One extra prediction head, 1–2% on most evals, zero inference cost. Adopt unless you have a specific reason not to.
+6. **MTP is a cheap-to-run quality win with a serving bonus.** DeepSeek-V3's single sequential MTP module improved its ablations and, kept at inference, gave 1.8× decoding speed as a speculative draft. It is not free in parameters (14B in V3), but it can be discarded after training.
 7. **Long context is solved with YaRN, mostly.** For up to 128K, RoPE scaling + a few hundred fine-tune steps is the standard recipe. Beyond that, you need hybrid attention patterns and a separate long-context training stage.
 
 The next chapter covers distributed training — the systems side of taking any of these architectures and training it on 2,000+ GPUs.

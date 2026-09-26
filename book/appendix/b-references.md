@@ -1025,6 +1025,26 @@ URL: https://arxiv.org/abs/2311.12022
 
 ---
 
+### 97. GPipe
+
+**Huang et al.** "GPipe: Efficient Training of Giant Neural Networks using Pipeline Parallelism." NeurIPS 2019. arXiv:1811.06965.
+
+The original synchronous pipeline-parallel schedule: every micro-batch's forward pass completes before any backward pass begins, so activation memory grows with the micro-batch count.
+
+URL: https://arxiv.org/abs/1811.06965
+
+---
+
+### 98. Megatron-LM at scale — Narayanan et al.
+
+**Narayanan et al.** "Efficient Large-Scale Language Model Training on GPU Clusters Using Megatron-LM." SC 2021. arXiv:2104.04473.
+
+The paper that combined tensor, pipeline and data parallelism at thousand-GPU scale and introduced the interleaved 1F1B pipeline schedule.
+
+URL: https://arxiv.org/abs/2104.04473
+
+---
+
 ## Notes on the references
 
 - The frontier moves fast. Many of these are 2023–2025; expect newer versions.

@@ -153,6 +153,10 @@ class Precision:
 
 MIXED_BF16 = Precision("bf16-mixed")
 MIXED_FP8 = Precision("fp8-mixed", weights=1, grads=1)     # master/optim stay FP32
+# DeepSeek-V3's recipe (V3 report section 3.3.3): AdamW moments in BF16, master
+# weights and gradients in FP32. The 2-byte working copy is our assumption; the
+# report does not say how the FP8 casts are staged.
+DEEPSEEK_V3_RECIPE = Precision("deepseek-v3", weights=2, grads=4, master=4, optim_m=2, optim_v=2)
 PURE_BF16 = Precision("bf16-pure", master=0, optim_m=2, optim_v=2)
 
 
@@ -416,7 +420,10 @@ MOE_30B = Model(
 
 H100_64 = Cluster("64x H100", 64, 80.0, 990.0, 450.0, 40.0)
 H100_1024 = Cluster("1024x H100", 1024, 80.0, 990.0, 450.0, 40.0)
-H800_2048 = Cluster("2048x H800", 2048, 80.0, 990.0, 200.0, 25.0)
+# The H800's NVLink is cut down relative to the H100's. These are the numbers
+# DeepSeek report for their own cluster (V3 report section 3.2.2): NVLink
+# 160 GB/s, InfiniBand 50 GB/s. See book/appendix/fact-sheets/deepseek-v3.md#cluster-and-interconnect.
+H800_2048 = Cluster("2048x H800", 2048, 80.0, 990.0, 160.0, 50.0)
 
 print("Model parameter counts")
 print("-" * 74)
@@ -527,13 +534,18 @@ def search(
     return valid[:max_results]
 
 
-for model, cluster, seq in [
-    (LLAMA3_70B, H100_64, 8192),
-    (MOE_30B, H100_1024, 8192),
-    (DEEPSEEK_V3, H800_2048, 4096),
+# DeepSeek-V3's own global batch: 15,360 sequences of 4K (V3 report section 4.2).
+V3_BATCH_TOKENS = 15_360 * 4096
+
+for model, cluster, seq, prec, batch in [
+    (LLAMA3_70B, H100_64, 8192, MIXED_BF16, 4_194_304),
+    (MOE_30B, H100_1024, 8192, MIXED_BF16, 4_194_304),
+    (DEEPSEEK_V3, H800_2048, 4096, DEEPSEEK_V3_RECIPE, V3_BATCH_TOKENS),
 ]:
-    print(f"\n{'='*74}\n{model.name} on {cluster.name}, seq={seq}\n{'='*74}")
-    results = search(model, cluster, MIXED_BF16, seq, max_results=3 if SMOKE else 6)
+    print(f"\n{'='*74}\n{model.name} on {cluster.name}, seq={seq}, {prec.name}, "
+          f"batch={batch/1e6:.1f}M tokens\n{'='*74}")
+    results = search(model, cluster, prec, seq, global_batch_tokens=batch,
+                     max_results=3 if SMOKE else 6)
     if not results:
         print("  NOTHING FITS. Try a shorter sequence, more GPUs, or full recompute.")
         continue
@@ -552,10 +564,55 @@ for model, cluster, seq in [
     )
 
 # %% [markdown]
+# ### 8b. What DeepSeek actually ran, and why the calculator disagrees
+#
+# DeepSeek-V3 trained with PP=16, EP=64 spanning 8 nodes, ZeRO-1 data
+# parallelism and no TP (V3 report section 3.2; the book's fact sheet). Does the
+# calculator above pick that? Compare the two, and read any gap as a
+# statement about what this model leaves out, not about DeepSeek.
+
+# %%
+V3_ACTUAL = Parallelism(tp=1, pp=16, ep=64, dp=H800_2048.n_gpus // (16 * 64), zero_stage=1)
+v3_mem = per_gpu_memory_gb(DEEPSEEK_V3, H800_2048, V3_ACTUAL, DEEPSEEK_V3_RECIPE, 1, 4096)
+v3_perf = step_time_s(DEEPSEEK_V3, H800_2048, V3_ACTUAL, V3_BATCH_TOKENS, seq_len=4096)
+best_par, best_mem, best_perf = search(DEEPSEEK_V3, H800_2048, DEEPSEEK_V3_RECIPE, 4096,
+                                      global_batch_tokens=V3_BATCH_TOKENS, max_results=1)[0]
+
+# The model charges the EP all-to-all as fully exposed. DualPipe's purpose is to
+# overlap it with compute (V3 report section 3.2.1), so bound the effect by
+# hiding it entirely.
+v3_hidden_step = v3_perf["step_s"] - v3_perf["ep_comm_s"]
+best_hidden_step = best_perf["step_s"] - best_perf["ep_comm_s"]
+
+print(f"{'configuration':<44} {'fits':>5} {'mem GB':>7} {'step s':>7} {'EP comm s':>9} {'EP hidden':>9}")
+for label, par, mem, perf, hidden in [
+    ("calculator's pick: " + f"TP={best_par.tp} PP={best_par.pp} EP={best_par.ep}", best_par, best_mem, best_perf, best_hidden_step),
+    ("DeepSeek's layout: TP=1 PP=16 EP=64", V3_ACTUAL, v3_mem, v3_perf, v3_hidden_step),
+]:
+    print(f"{label:<44} {str(mem['fits']):>5} {mem['total']:>7.1f} {perf['step_s']:>7.2f} "
+          f"{perf['ep_comm_s']:>9.2f} {hidden:>9.2f}")
+
+ratio_exposed = v3_perf["step_s"] / best_perf["step_s"]
+ratio_hidden = v3_hidden_step / best_hidden_step
+# Every printed multiplier is computed from the rows above; assert it, so the
+# narration cannot drift from the numbers it describes.
+assert abs(ratio_exposed - v3_perf["step_s"] / best_perf["step_s"]) < 1e-12
+assert abs(ratio_hidden - (v3_perf["step_s"] - v3_perf["ep_comm_s"]) / (best_perf["step_s"] - best_perf["ep_comm_s"])) < 1e-12
+picked_v3 = (best_par.tp, best_par.pp, best_par.ep) == (V3_ACTUAL.tp, V3_ACTUAL.pp, V3_ACTUAL.ep)
+print(f"\nThe calculator {'DOES' if picked_v3 else 'does not'} pick DeepSeek's layout.")
+print(f"With EP charged as exposed, DeepSeek's layout is {ratio_exposed:.2f}x the pick's step time.")
+print(f"With EP overlapped (DualPipe's goal), the ratio is {ratio_hidden:.2f}x.")
+print("What this calculator omits, each of which V3 relies on:")
+print("  - overlap of the all-to-all with compute (DualPipe, report 3.2.1);")
+print("  - node-limited routing: each token reaches at most 4 nodes over InfiniBand")
+print("    and fans out over NVLink (report 3.2.2); here every token pays the slow link.")
+
+# %% [markdown]
 # ## 9. Where the communication goes
 #
 # The exposed-communication column is what separates a 40% MFU run from a 20%
-# one, and it is the reason TP and EP belong inside a node.
+# one. It is why EP *defaults* to living inside a node, and why DeepSeek, which
+# ran it across 8 nodes, had to build machinery to hide it.
 
 # %%
 print("\nCommunication breakdown, MoE-30B on 1024x H100, 4.2M-token global batch")
@@ -573,7 +630,7 @@ for tp, ep in [(1, 8), (2, 8), (8, 1), (1, 64)]:
     )
 
 print("\nNote EP=64 spans 8 nodes, so its all-to-all runs at inter-node bandwidth.")
-print("That single change is why DeepSeek built DualPipe (Chapter 6 section 6.9).")
+print("DeepSeek-V3 ran exactly that, and built DualPipe to hide it (Chapter 6 section 6.10).")
 
 # %% [markdown]
 # ## 10. Things to try
@@ -600,9 +657,11 @@ print("That single change is why DeepSeek built DualPipe (Chapter 6 section 6.9)
 #
 # **4. Change `MIXED_BF16` to `MIXED_FP8` and re-run section 6.**
 # *Common prediction:* memory halves.
-# *What happens:* it drops by 2/16 = 12.5%, not 50% — because the FP32 master
-# weights and both Adam moments stay FP32, and they are 12 of the 16 bytes. FP8's
-# win is throughput and activation memory, not optimizer state.
+# *What happens:* it drops by 2/16 = 12.5%, not 50% — because in this preset the
+# FP32 master weights and both Adam moments stay FP32, and they are 12 of the 16
+# bytes. FP8's win is throughput and activation memory. DeepSeek-V3 went further
+# on the optimizer side: `DEEPSEEK_V3_RECIPE` stores both moments in BF16, which
+# the report found cost nothing measurable. Try it on Llama-3-70B.
 #
 # **5. Raise `micro_batch` from 1 to 4 and re-search.**
 # *Common prediction:* memory rises 4x across the board.
@@ -619,8 +678,9 @@ print("That single change is why DeepSeek built DualPipe (Chapter 6 section 6.9)
 #    Memorize the decomposition, not the number.
 # 3. **Activations usually dominate**, and they do not shard across data-parallel
 #    ranks. ZeRO helps the smaller term.
-# 4. **TP and EP belong inside a node**; DP and PP tolerate the slow network.
-#    The exposed-communication column shows why.
+# 4. **TP belongs inside a node, and so does EP by default**; DP and PP tolerate
+#    the slow network. The exposed-communication column shows why, and section
+#    8b shows what DeepSeek had to add to run EP across nodes anyway.
 # 5. **This calculation costs a second.** Do it before writing code, not after a
 #    cluster-week.
 #

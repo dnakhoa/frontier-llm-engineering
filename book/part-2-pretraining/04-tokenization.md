@@ -2,6 +2,8 @@
 
 > Reading time: ~40 minutes. By the end of this chapter, you should be able to read the tokenizer config of any frontier model, predict its behavior on a piece of text, and explain why a bad tokenizer is the most expensive mistake a pre-training team can make.
 
+*Current as of early 2025.*
+
 ## 4.1 Why tokenization matters
 
 The data-pipeline chapter (Chapter 3) treated tokenization as one stage in a 10-stage pipeline. This chapter makes the case that it deserves its own chapter: a bad tokenizer choice is a problem that cannot be fixed after a model is trained, and the cost of getting it wrong compounds across every training token, every inference call, and every downstream user.
@@ -84,7 +86,7 @@ low low low low low lower lower newest newest newest newest newest newest newest
 
 After these merges, the corpus tokenizes as `low low low ... er er newest newest ... widest widest`. The common sub-pieces `low`, `er`, `est` are merged into single tokens, while rare words decompose into pieces the model can still handle.
 
-In real BPE training, the base vocabulary is bytes (for byte-level BPE) or characters (for character-level BPE, used by some SentencePiece BPE configs). The base vocabulary size is either 256 (bytes) or the size of the character set in the training corpus. The rest of the vocabulary is filled by merges until the target size is reached. GPT-2 used 256-byte base + 50,000 merges. Llama-3 used 256-byte base + 127,744 merges. DeepSeek-V3 used 256-byte base + 128,000 merges. Qwen3 used 256-byte base + 151,808 merges.
+In real BPE training, the base vocabulary is bytes (for byte-level BPE) or characters (for character-level BPE, used by some SentencePiece BPE configs). The base vocabulary size is either 256 (bytes) or the size of the character set in the training corpus. The rest of the vocabulary is filled by merges until the target size is reached. GPT-2 used 256-byte base + 50,000 merges. The published files hold 127,741 merge rules for DeepSeek-V3 (128,000 entries), 280,147 for Llama-3 (128,000 entries) and 151,387 for Qwen3 (151,643 entries) ([tokenizer fact sheet](../appendix/fact-sheets/tokenizers.md)). The merge count need not match the entry count: Llama-3's list is more than twice its vocabulary.
 
 The choice of base matters: byte-level BPE is *vocabulary-complete*. Any UTF-8 string can be tokenized without an unknown character, because the base alphabet covers all possible bytes. Character-level BPE can encounter characters it has never seen; older models handled this with an `<unk>` token, which is a quality hit because the model loses information about what character it is looking at.
 
@@ -121,23 +123,23 @@ The vocabulary size $V$ is the most consequential single hyperparameter of the t
 
 **Arguments for a smaller vocabulary:**
 
-- Smaller embedding tables. The embedding matrix is $V \times d_{\text{model}}$. For DeepSeek-V3 ($d = 7168$, $V = 128{,}000$) the input embedding table is ~918M parameters (~1.8 GB in BF16); for Llama-3 ($d = 4096$, $V = 128{,}000$) it is ~524M (~1.0 GB); for Qwen3 ($d = 4096$, $V = 152{,}064$) it is ~623M (~1.2 GB). Small fractions of the total model, but not free, and they grow linearly with $V$.
+- Smaller embedding tables. The embedding matrix is $V \times d_{\text{model}}$, where $V$ is the model's (usually padded) `vocab_size`, not the tokenizer's entry count. For DeepSeek-V3 ($d = 7168$, $V = 129{,}280$) the input embedding table is ~927M parameters (~1.9 GB in BF16); for Llama-3 8B ($d = 4096$, $V = 128{,}256$) it is ~525M (~1.1 GB); for Qwen3-235B-A22B ($d = 4096$, $V = 151{,}936$) it is ~622M (~1.2 GB). Small fractions of the total model, but not free, and they grow linearly with $V$.
 - Fewer rare tokens. A 256K-vocab tokenizer on a 1T-token corpus has, on average, 4,000 training examples per token; a 32K-vocab tokenizer has 31,000. The difference is real.
 - Faster softmax. The output projection is $O(V \cdot d_{\text{model}})$ per token. For a 256K vocab this dominates per-token compute on the output side.
 
 The frontier has settled on large vocabularies — 128K to 152K — because training corpora are now large enough that even 128K tokens each get 100M+ training examples, and the savings in sequence length outweigh the embedding cost. What frontier labs actually pick:
 
-| Model | Vocab size | $d_{\text{model}}$ | Embedding params | Source |
-|---|---|---|---|---|
-| DeepSeek-V3 | 128,000 | 7,168 | ~918M | [\[1\]](../appendix/b-references.md#1-deepseek-v3) |
-| Llama-3 (8B/70B/405B) | 128,000 | 4,096 | ~524M | [\[5\]](../appendix/b-references.md#5-llama-3) |
-| Qwen3 | 152,064 | 4,096 | ~623M | [\[6\]](../appendix/b-references.md#6-qwen3) |
-| GPT-2 | 50,257 | 768 | ~39M | [\[32\]](../appendix/b-references.md#32-byte-level-bpe-gpt-2--radford-et-al) |
-| Llama-1 | 32,000 | 4,096 | ~131M | (Meta) |
+| Model | BPE vocab + added tokens | `vocab_size` (padded) | $d_{\text{model}}$ | Embedding params | Source |
+|---|---|---|---|---|---|
+| DeepSeek-V3 | 128,000 + 818 | 129,280 | 7,168 | ~927M | [fact sheet](../appendix/fact-sheets/tokenizers.md#deepseek-v3) |
+| Llama-3 8B | 128,000 + 256 | 128,256 | 4,096 | ~525M | [fact sheet](../appendix/fact-sheets/tokenizers.md#llama-3) |
+| Qwen3-235B-A22B | 151,643 + 26 | 151,936 | 4,096 | ~622M | [fact sheet](../appendix/fact-sheets/tokenizers.md#qwen3) |
+| GPT-2 | 50,257 | — | 768 | ~39M | [\[32\]](../appendix/b-references.md#32-byte-level-bpe-gpt-2--radford-et-al) |
+| Llama-1 | 32,000 | — | 4,096 | ~131M | (Meta) |
 
 The trend is clear: as training corpora grew from hundreds of billions to tens of trillions of tokens, vocabulary size grew from 32K to 128K–152K. The next generation is likely to push further, though with diminishing returns.
 
-A subtle point: the embedding table is not really $V \times d_{\text{model}}$ in modern implementations. Llama-3 uses *tied* embeddings — input embedding and output projection share weights. DeepSeek-V3 does not (separate input and output embeddings). The decision is partly about training stability (tied embeddings regularize) and partly about the fact that the output side has a different distribution from the input side.
+A subtle point: some models *tie* the input embedding and the output projection, so they share one $V \times d_{\text{model}}$ matrix; others keep them separate. All three case-study models keep them separate: `tie_word_embeddings` is `false` in the DeepSeek-V3, Llama-3 8B and Qwen3-235B-A22B configs ([fact sheet](../appendix/fact-sheets/tokenizers.md)). Small models are where tying pays; GPT-2 ties. The decision is partly about training stability (tied embeddings regularize) and partly about the fact that the output side has a different distribution from the input side.
 
 ## 4.5 Byte fallback and special tokens
 
@@ -156,9 +158,11 @@ The cost is that very rare characters cost many tokens. On a tokenizer with a sm
 
 Frontier models add *domain-specific* special tokens:
 
-- **Llama-3** reserves 128 special tokens at IDs 128002–128255 for function calling, code, and chat format, with specific tokens like `<|start_header_id|>`, `<|end_header_id|>`, and `<|eot_id|>` already defined and the rest reserved for future expansion.
-- **DeepSeek-V3** has FIM tokens (`<|fim_begin|>`, `<|fim_hole|>`, `<|fim_end|>`) for code fill-in-the-middle, plus `<|file_sep|>` to mark document boundaries in code corpora.
-- **Qwen3** has chat tokens (`<|im_start|>`, `<|im_end|>`) and `<|tool_call|>` for function calling.
+- **Llama-3** has 256 special tokens, IDs 128000–128255. A handful are named: `<|begin_of_text|>`, `<|end_of_text|>`, and the chat markers `<|start_header_id|>`, `<|end_header_id|>` and `<|eot_id|>`. The rest are `<|reserved_special_token_N|>`, kept for later use.
+- **DeepSeek-V3** adds 818 tokens after its 128,000 BPE entries. They include FIM markers (`<｜fim▁hole｜>`, `<｜fim▁begin｜>`, `<｜fim▁end｜>`) for code fill-in-the-middle, chat roles (`<｜User｜>`, `<｜Assistant｜>`), tool-call markers, and several hundred `<｜place▁holder▁no▁N｜>` placeholders. Note the full-width bars and `▁` separators: that is what the file actually contains.
+- **Qwen3** adds 26: chat tokens (`<|im_start|>`, `<|im_end|>`), vision placeholders, FIM tokens, and the plain-text tags `<tool_call>` … `</tool_call>` and `<think>` … `</think>`. Those last are *added but not special*: they are atomic tokens, yet they are not stripped when decoding.
+
+All three lists are in the [tokenizer fact sheet](../appendix/fact-sheets/tokenizers.md).
 
 Adding special tokens is non-trivial. The new tokens are *added* to the vocabulary, which means the embedding table grows. The new token embeddings are randomly initialized, which means the model is initially poor at predicting them. Three common approaches:
 
@@ -189,7 +193,7 @@ The "English-only" tokenizer punishes every non-English language by 2x or more. 
 1. **Higher cost.** A Chinese-language user pays 2x more tokens for the same content. For an API provider, this is a 2x higher inference cost per Chinese request.
 2. **Worse quality.** The model spends more of its context window on the same text, leaving less room for reasoning. And because the Chinese tokens are rare in the training distribution, the model has seen less data per Chinese token, so its Chinese capabilities are weaker.
 
-This is what the field means by "Chinese is punished." The fix is to *upweight* Chinese in the tokenizer training corpus. Qwen3's 152K vocabulary is heavily Chinese-optimized, with a large fraction of merges that produce common Chinese characters and bigrams as single tokens [\[6\]](../appendix/b-references.md#6-qwen3). DeepSeek-V3 similarly optimized for English + Chinese [\[1\]](../appendix/b-references.md#1-deepseek-v3).
+This is what the field means by "Chinese is punished." The fix is to *upweight* Chinese in the tokenizer training corpus. You can see who did this by counting the vocabulary. We decoded every entry of the three published tokenizers and counted those containing a Han character: **DeepSeek-V3 35,334** of 128,000, **Qwen3 25,511** of 151,643, **Llama-3 4,387** of 128,000 (our count; method in the [fact sheet](../appendix/fact-sheets/tokenizers.md#measured-han-coverage)). The model with the most Han tokens is not the one with the largest vocabulary. DeepSeek say only that their pre-tokenizer and tokenizer training data were "modified to optimize multilingual compression efficiency" [\[1\]](../appendix/b-references.md#1-deepseek-v3). Qwen's report gives the vocabulary size (151,669) and nothing about its language mix [\[6\]](../appendix/b-references.md#6-qwen3).
 
 A fertility computation in Python using the HuggingFace `tokenizers` library [\[33\]](../appendix/b-references.md#33-hugging-face-tokenizers-library):
 
@@ -223,19 +227,21 @@ Code has its own tokenization challenges. Three issues dominate:
 - **Common keywords and operators should be single tokens.** `def`, `class`, `return`, `if`, `else`, `==`, `!=`, `->` are all good candidates.
 - **Identifiers and string literals are highly variable.** A good tokenizer handles them as sub-pieces the model can compose.
 
-Llama-3 specifically increased the number of merges dedicated to whitespace tokens, encoding runs of spaces (one, two, three, four, tab) as separate tokens [\[5\]](../appendix/b-references.md#5-llama-3). A 4-space indent costs 1 token instead of 4. DeepSeek-Coder, the predecessor to DeepSeek-V3's code abilities, similarly added a large set of whitespace tokens.
+Llama-3's vocabulary has single tokens for runs of spaces (86 of them, up to 128 spaces long) and of tabs (20), so a 4-space indent costs 1 token instead of 4. Those tokens all come with the 100K entries Meta took from tiktoken; none is among the 28K it added ([fact sheet](../appendix/fact-sheets/tokenizers.md#llama-3)). The Llama-3 report says nothing about whitespace. DeepSeek-Coder, the predecessor to DeepSeek-V3's code abilities, similarly added a large set of whitespace tokens.
 
 The trade-off: every whitespace token in the vocabulary is a slot that could have been used for a common word. For a code-heavy model the trade-off is worth it; for a general-purpose chat model it is less clear.
 
 A second concern is the handling of long identifiers. In a real codebase, identifiers like `process_user_input_with_validation` are common. A good tokenizer will split this as `process`, `_user`, `_input`, `_with`, `_validation`, each of which appears in many codebases. A bad tokenizer will split it as individual characters, costing 30+ tokens for one identifier.
 
-A real tokenizer behavior on a line of Python:
+A real tokenizer behavior on a line of Python, from the published Llama-3 `tokenizer.json` (@8cde5ca):
 
 ```python
 code = "    return [x*2 for x in items if x > 0]"
-# Llama-3 (128K, code-aware): 16 tokens
-#   ['<|begin_of_text|>', '    ', 'return', ' [', 'x', '*', '2', ' for',
-#    ' x', ' in', ' items', ' if', ' x', ' >', ' 0', ']']
+# Llama-3 (128K): 17 tokens
+#   ['<|begin_of_text|>', '   ', ' return', ' [', 'x', '*', '2', ' for',
+#    ' x', ' in', ' items', ' if', ' x', ' >', ' ', '0', ']']
+# The pre-tokenizer gives the last space of the indent to ' return', and
+# splits digits from the space before them, so ' 0' is two tokens
 # A naive 32K English-only BPE might split 'return' as 'ret','urn', hurting the model
 ```
 
@@ -250,38 +256,45 @@ A character-level BPE pre-tokenizer might just split on whitespace. A byte-level
 The Llama-3 pre-tokenizer regex (from the published tokenizer config [\[5\]](../appendix/b-references.md#5-llama-3)):
 
 ```python
-# Llama-3 pre-tokenizer (simplified)
+# ILLUSTRATIVE layout: Llama-3's published pre-tokenizer regex, split onto lines for reading.
+# CI checks that the pieces join to the real pattern (tools/test_transcriptions.py).
 LLAMA3_PATTERN = (
     r"(?i:'s|'t|'re|'ve|'m|'ll|'d)"          # English contractions
-    r"|[^\r\n\p{L}\p{N}]?+\p{L}+"            # Letters (with optional prefix punct)
+    r"|[^\r\n\p{L}\p{N}]?\p{L}+"             # Letters (with optional prefix punct)
     r"|\p{N}{1,3}"                            # Numbers (1-3 digit chunks)
-    r"| ?[^\s\p{L}\p{N}]++"                   # Punctuation
-    r"|\s+"                                   # Whitespace (preserved!)
+    r"| ?[^\s\p{L}\p{N}]+[\r\n]*"            # Punctuation, plus trailing newlines
+    r"|\s*[\r\n]+"                           # Newline runs
+    r"|\s+(?!\S)"                             # Whitespace not followed by a word
+    r"|\s+"                                   # Any remaining whitespace
 )
 ```
 
 Key points:
 
-- The possessive `+` (`?+`, `++`) prevents regex backtracking.
+- Tiktoken's original regex uses possessive quantifiers (`?+`, `++`) to prevent backtracking. The Hugging Face `tokenizer.json` spells the same pattern without them.
 - `\p{N}{1,3}` is the trick that handles numbers as small chunks: `1234567` becomes `123`, `456`, `7` (or `1`, `234`, `567`, depending on position).
-- ` ?[^\s\p{L}\p{N}]++` matches punctuation, optionally with a leading space — so ` .` and `.` are different tokens.
+- ` ?[^\s\p{L}\p{N}]+[\r\n]*` matches punctuation, plus any newlines right after it, optionally with a leading space — so ` .` and `.` are different tokens.
 - `\s+` matches runs of whitespace as a single token. This is what makes indentation cheap: 4 spaces of indent = 1 token.
 
-Qwen3 uses a similar but Chinese-extended regex. The Chinese-specific part handles Han characters as a separate class:
+Qwen3's regex is the same with **one** change, and it is not about Chinese:
 
 ```python
-# Qwen3 pre-tokenizer (simplified)
+# ILLUSTRATIVE layout: Qwen3's published pre-tokenizer regex, split onto lines for reading.
+# CI checks that the pieces join to the real pattern (tools/test_transcriptions.py).
 QWEN3_PATTERN = (
     r"(?i:'s|'t|'re|'ve|'m|'ll|'d)"
-    r"|[^\r\n\p{L}\p{N}]?+\p{L}+"
-    r"|[^\r\n\p{L}\p{N}]?+[\p{Han}\p{Katakana}\p{Hiragana}\p{Hangul}]+"  # CJK
-    r"|\p{N}{1,3}"
-    r"| ?[^\s\p{L}\p{N}]++"
+    r"|[^\r\n\p{L}\p{N}]?\p{L}+"
+    r"|\p{N}"                                 # ONE digit at a time
+    r"| ?[^\s\p{L}\p{N}]+[\r\n]*"
+    r"|\s*[\r\n]+"
+    r"|\s+(?!\S)"
     r"|\s+"
 )
 ```
 
-The added `[\p{Han}\p{Katakana}\p{Hiragana}\p{Hangul}]` class matches CJK characters as their own pre-tokens, so they are tokenized independently of surrounding Latin text. This is what lets the tokenizer build a vocabulary that includes common Chinese characters and bigrams as single tokens.
+Qwen splits numbers into **single digits**, so `1234567` becomes seven pre-tokens and every number is spelled digit by digit, which helps arithmetic. There is no CJK class. Qwen also applies NFC Unicode normalization first, which Llama-3 does not.
+
+The tokenizer that *does* isolate CJK is DeepSeek-V3's. Before its main regex, it splits off runs of `[\u4e00-\u9fa5\u3040-\u309f\u30a0-\u30ff]+`: the basic CJK Unified Ideographs block, then Hiragana and Katakana (Hangul is not included). Those runs become their own pre-tokens, so BPE merges built on them never straddle a Chinese–Latin boundary. That fits the Han count in §4.6: DeepSeek's vocabulary holds the most Han tokens of the three. The code is in the [tokenizer fact sheet](../appendix/fact-sheets/tokenizers.md).
 
 Pre-tokenization is one of the most under-discussed parts of tokenizer design. A pre-tokenizer that does not split on whitespace, or does not handle CJK, will produce dramatically worse tokenization for the relevant languages, and the BPE merges built on top cannot fully fix it.
 
@@ -410,7 +423,7 @@ This is why the tokenizer choice gets A/B tested before a major run. The typical
 
 The cost of the A/B test is small relative to the cost of the full run. The cost of a bad choice is enormous. This asymmetry drives a lot of the pre-training team's attention to tokenization.
 
-A real example: the Llama-3 team explicitly increased vocab size from 32K (Llama-2) to 128K (Llama-3), citing multilingual and code improvements [\[5\]](../appendix/b-references.md#5-llama-3). The Qwen3 team's vocabulary distribution reflects a similar iteration, even when the size stays constant at 152K [\[6\]](../appendix/b-references.md#6-qwen3). The DeepSeek-V3 team's choice of 128K is partly because they started from a 32K Llama-1-style tokenizer and grew it as the model grew [\[1\]](../appendix/b-references.md#1-deepseek-v3). The vocab size grows with the model, not the other way around.
+A real example: the Llama-3 team explicitly increased vocab size from 32K (Llama-2) to 128K (Llama-3), citing better compression (3.17 → 3.94 characters per token on an English sample) and better support for non-English languages [\[5\]](../appendix/b-references.md#5-llama-3) ([fact sheet](../appendix/fact-sheets/tokenizers.md#llama-3)). The Qwen3 team's vocabulary distribution reflects a similar iteration, even when the size stays constant at 152K [\[6\]](../appendix/b-references.md#6-qwen3). DeepSeek describe V3's tokenizer as byte-level BPE "with an extended vocabulary of 128K tokens", its pre-tokenizer and training data "modified to optimize multilingual compression efficiency" [\[1\]](../appendix/b-references.md#1-deepseek-v3). The vocab size grows with the model, not the other way around.
 
 ## 4.11 Real configurations
 
@@ -418,97 +431,197 @@ What the actual tokenizer files look like for the three case-study models. All t
 
 ### 4.11.1 DeepSeek-V3
 
-From the DeepSeek-V3 model release [\[1\]](../appendix/b-references.md#1-deepseek-v3):
-
+<!-- real-config: deepseek-v3-tokenizer -->
 ```json
+// tokenizer.json (excerpt)
 {
-  "added_tokens_decoder": {
-    "0": {"content": "<unk>",  "special": true},
-    "1": {"content": "<s>",    "special": true},
-    "2": {"content": "</s>",   "special": true},
-    "3": {"content": "<|fim_begin|>", "special": true},
-    "4": {"content": "<|fim_hole|>",  "special": true},
-    "5": {"content": "<|fim_end|>",   "special": true},
-    "6": {"content": "<|file_sep|>",  "special": true}
+  "model": {
+    "type": "BPE",
+    "byte_fallback": false,
+    "vocab": "<128,000 entries>",
+    "merges": "<127,741 rules>"
+  },
+  "added_tokens": "<818 entries, 804 of them special>",
+  "added_tokens (first special, by id)": {
+    "0": "<｜begin▁of▁sentence｜>",
+    "1": "<｜end▁of▁sentence｜>",
+    "2": "<｜▁pad▁｜>",
+    "128000": "<｜place▁holder▁no▁0｜>",
+    "128001": "<｜place▁holder▁no▁1｜>",
+    "128002": "<｜place▁holder▁no▁2｜>"
+  },
+  "normalizer": {
+    "type": "Sequence",
+    "normalizers": []
   },
   "pre_tokenizer": {
     "type": "Sequence",
     "pretokenizers": [
-      {"type": "Split", "pattern": {"Regex": "[\\p{Han}]+"},       "behavior": "Isolated"},
-      {"type": "Split", "pattern": {"Regex": "\\p{N}{1,3}"},       "behavior": "Isolated"},
-      {"type": "ByteLevel", "add_prefix_space": false, "use_regex": false}
+      {
+        "type": "Split",
+        "pattern": {
+          "Regex": "\\p{N}{1,3}"
+        },
+        "behavior": "Isolated",
+        "invert": false
+      },
+      {
+        "type": "Split",
+        "pattern": {
+          "Regex": "[一-龥぀-ゟ゠-ヿ]+"
+        },
+        "behavior": "Isolated",
+        "invert": false
+      },
+      {
+        "type": "Split",
+        "pattern": {
+          "Regex": "[!\"#$%&'()*+,\\-./:;<=>?@\\[\\\\\\]^_`{|}~][A-Za-z]+|[^\r\n\\p{L}\\p{P}\\p{S}]?[\\p{L}\\p{M}]+| ?[\\p{P}\\p{S}]+[\r\n]*|\\s*[\r\n]+|\\s+(?!\\S)|\\s+"
+        },
+        "behavior": "Isolated",
+        "invert": false
+      },
+      {
+        "type": "ByteLevel",
+        "add_prefix_space": false,
+        "trim_offsets": true,
+        "use_regex": false
+      }
     ]
   },
-  "model": {
-    "type": "BPE", "byte_fallback": true,
-    "vocab": { "...": "... 128000 entries ..." },
-    "merges": [ "...": "... 127744 merge rules ..." ]
+  "decoder": {
+    "type": "ByteLevel"
   }
+}
+// config.json (excerpt)
+{
+  "vocab_size": 129280,
+  "tie_word_embeddings": false
 }
 ```
 
-Key properties: 128K vocab, byte fallback, BPE, byte-level base, **Han character pre-tokenization** (Chinese characters isolated as their own pre-tokens before BPE, so merges built on top are CJK-friendly), number splitting, FIM and file-separator special tokens.
+*Real config. Generated from `deepseek-ai/DeepSeek-V3` at commit `e815299` (retrieved 2026-09-26) by `tools/build_configs.py`; do not edit by hand.*
+<!-- /real-config -->
+
+Key properties: 128,000 BPE entries plus 818 added tokens (`vocab_size` 129,280), **no byte fallback**, byte-level base, and the three-stage pre-tokenizer from §4.8: digits in 1–3 chunks, then **CJK runs isolated**, then a regex that keeps punctuation-plus-newline together (the "combined tokens" whose boundary bias DeepSeek discuss in their report). The special tokens use full-width bars and `▁`.
 
 ### 4.11.2 Llama-3
 
-From the Llama-3 model release [\[5\]](../appendix/b-references.md#5-llama-3):
-
+<!-- real-config: llama-3-tokenizer -->
 ```json
+// tokenizer.json (excerpt)
 {
-  "added_tokens_decoder": {
-    "128000": {"content": "<|begin_of_text|>", "special": true},
-    "128001": {"content": "<|end_of_text|>",   "special": true},
-    "128007": {"content": "<|start_header_id|>", "special": true},
-    "128008": {"content": "<|end_header_id|>",   "special": true},
-    "128009": {"content": "<|eot_id|>",          "special": true}
+  "model": {
+    "type": "BPE",
+    "byte_fallback": false,
+    "vocab": "<128,000 entries>",
+    "merges": "<280,147 rules>"
   },
+  "added_tokens": "<256 entries, 256 of them special>",
+  "added_tokens (first special, by id)": {
+    "128000": "<|begin_of_text|>",
+    "128001": "<|end_of_text|>",
+    "128002": "<|reserved_special_token_0|>",
+    "128003": "<|reserved_special_token_1|>",
+    "128004": "<|reserved_special_token_2|>",
+    "128005": "<|reserved_special_token_3|>"
+  },
+  "normalizer": null,
   "pre_tokenizer": {
     "type": "Sequence",
     "pretokenizers": [
-      {"type": "Split", "pattern": {"Regex": "(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\\r\\n\\p{L}\\p{N}]?+\\p{L}+|\\p{N}{1,3}| ?[^\\s\\p{L}\\p{N}]++|\\s+"}, "behavior": "Isolated"},
-      {"type": "ByteLevel", "add_prefix_space": false, "use_regex": false}
+      {
+        "type": "Split",
+        "pattern": {
+          "Regex": "(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}{1,3}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+"
+        },
+        "behavior": "Isolated",
+        "invert": false
+      },
+      {
+        "type": "ByteLevel",
+        "add_prefix_space": false,
+        "trim_offsets": true,
+        "use_regex": false
+      }
     ]
   },
-  "model": {
-    "type": "BPE", "byte_fallback": true,
-    "vocab": { "...": "... 128000 entries ..." },
-    "merges": [ "...": "... 127744 merge rules ..." ]
+  "decoder": {
+    "type": "ByteLevel"
   }
+}
+// config.json (excerpt)
+{
+  "vocab_size": 128256,
+  "tie_word_embeddings": false
 }
 ```
 
-Key properties: 128K vocab, byte fallback, BPE, byte-level base, **whitespace and number pre-tokenization** (runs of whitespace are a single token, numbers split into 1–3 digit chunks), **128 reserved special tokens** for function calling, chat template markers (`<|start_header_id|>`, `<|end_header_id|>`, `<|eot_id|>`), **no explicit CJK pre-tokenization** (Han characters get tokenized by byte-level base + BPE merges, but no Han-isolated pre-tokens — this is why Llama-3 has higher Chinese fertility than Qwen3).
+*Real config. Generated from `meta-llama/Meta-Llama-3-8B` at commit `8cde5ca` (retrieved 2026-09-26) by `tools/build_configs.py`; do not edit by hand. Downloaded from the ungated mirror `NousResearch/Meta-Llama-3-8B`, whose bytes match the official file's hash.*
+<!-- /real-config -->
+
+Key properties: 128,000 BPE entries — per Meta, "100K tokens from the tiktoken tokenizer with 28K additional tokens to better support non-English languages" [\[5\]](../appendix/b-references.md#5-llama-3) — plus 256 special tokens (`vocab_size` 128,256). **No byte fallback.** Byte-level base, tiktoken-style pre-tokenizer, **no CJK pre-tokenization**, and far fewer Han tokens than either Chinese lab's tokenizer (§4.6). Note the merge count: 280,147, more than twice the vocabulary. The file's merge list is not the minimal set that builds the vocabulary.
 
 ### 4.11.3 Qwen3
 
-From the Qwen3 model release [\[6\]](../appendix/b-references.md#6-qwen3):
-
+<!-- real-config: qwen3-tokenizer -->
 ```json
+// tokenizer.json (excerpt)
 {
-  "added_tokens_decoder": {
-    "151643": {"content": "<|endoftext|>", "special": true},
-    "151644": {"content": "<|im_start|>",  "special": true},
-    "151645": {"content": "<|im_end|>",    "special": true},
-    "151670": {"content": "<|tool_call|>", "special": true}
+  "model": {
+    "type": "BPE",
+    "byte_fallback": false,
+    "vocab": "<151,643 entries>",
+    "merges": "<151,387 rules>"
+  },
+  "added_tokens": "<26 entries, 14 of them special>",
+  "added_tokens (first special, by id)": {
+    "151643": "<|endoftext|>",
+    "151644": "<|im_start|>",
+    "151645": "<|im_end|>",
+    "151646": "<|object_ref_start|>",
+    "151647": "<|object_ref_end|>",
+    "151648": "<|box_start|>"
+  },
+  "normalizer": {
+    "type": "NFC"
   },
   "pre_tokenizer": {
     "type": "Sequence",
     "pretokenizers": [
-      {"type": "Split", "pattern": {"Regex": "(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\\r\\n\\p{L}\\p{N}]?+\\p{L}+|[^\\r\\n\\p{L}\\p{N}]?+[\\p{Han}\\p{Katakana}\\p{Hiragana}\\p{Hangul}]+|\\p{N}{1,3}| ?[^\\s\\p{L}\\p{N}]++|\\s+"}, "behavior": "Isolated"},
-      {"type": "ByteLevel", "add_prefix_space": false, "use_regex": false}
+      {
+        "type": "Split",
+        "pattern": {
+          "Regex": "(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\\r\\n\\p{L}\\p{N}]?\\p{L}+|\\p{N}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+"
+        },
+        "behavior": "Isolated",
+        "invert": false
+      },
+      {
+        "type": "ByteLevel",
+        "add_prefix_space": false,
+        "trim_offsets": false,
+        "use_regex": false
+      }
     ]
   },
-  "model": {
-    "type": "BPE", "byte_fallback": true,
-    "vocab": { "...": "... 152064 entries ..." },
-    "merges": [ "...": "... 151808 merge rules ..." ]
+  "decoder": {
+    "type": "ByteLevel"
   }
+}
+// config.json (excerpt)
+{
+  "vocab_size": 151936,
+  "tie_word_embeddings": false
 }
 ```
 
-Key properties: **152,064-token vocabulary** — the largest of the three, with heavy Chinese optimization. BPE, byte-level base, **CJK pre-tokenization** (`[\p{Han}\p{Katakana}\p{Hiragana}\p{Hangul}]+` isolated as a separate pre-token class so CJK text gets its own merge treatment), chat format tokens (`<|im_start|>`, `<|im_end|>`) following the Qwen2-style template, tool-use token (`<|tool_call|>`).
+*Real config. Generated from `Qwen/Qwen3-235B-A22B` at commit `8efa617` (retrieved 2026-09-26) by `tools/build_configs.py`; do not edit by hand.*
+<!-- /real-config -->
 
-The contrast is sharp: Qwen3 has ~24K more tokens than DeepSeek-V3 or Llama-3, almost all of them Chinese-optimized. This is the most direct evidence of the "Chinese is punished" problem being taken seriously: the Qwen team decided that the additional embedding cost was worth it for the reduction in Chinese-language fertility.
+Key properties: 151,643 BPE entries plus 26 added (151,669, the figure in the Qwen3 report [\[6\]](../appendix/b-references.md#6-qwen3)); `vocab_size` is padded to 151,936. **No byte fallback.** NFC normalization, byte-level base, and a pre-tokenizer that differs from Llama-3's only in splitting **digits one at a time**. Chat tokens `<|im_start|>`/`<|im_end|>`, and `<think>`/`<tool_call>` as added-but-not-special tokens.
+
+The contrast worth remembering is the opposite of the folklore. The biggest vocabulary here is Qwen3's, and it has neither the CJK pre-tokenizer nor the most Han tokens; DeepSeek-V3 has both. Vocabulary *size* says little about language allocation. You have to open the file.
 
 ## 4.12 The JD, decoded
 
@@ -532,7 +645,7 @@ This work is done by 1–3 people at a typical frontier lab, and it is *front-lo
 1. **Tokenization is permanent.** A model's vocabulary is locked in at pre-training time. Every user pays the cost of the choice. A/B testing tokenizers before a major run is one of the highest-leverage activities a pre-training team can do.
 2. **BPE is the workhorse; Unigram is the multilingual alternative.** Frontier models use byte-level BPE almost universally. Unigram / SentencePiece is the right choice when multilingual balance matters more than peak English compression.
 3. **Vocabulary size is a resource allocation problem.** More tokens = better compression, smaller sequences, higher embedding cost, more rare tokens. Frontier labs have settled on 128K–152K. The allocation across languages is where the real choice lives.
-4. **Multilingual tokenization is the "Chinese is punished" problem.** A tokenizer trained mostly on English will cost 2x more tokens for Chinese, Japanese, Korean. Qwen3's 152K vocab is heavily Chinese-optimized to fix this.
+4. **Multilingual tokenization is the "Chinese is punished" problem.** A tokenizer trained mostly on English will cost 2x more tokens for Chinese, Japanese, Korean. The fix is in the tokenizer's training data and pre-tokenizer, and you verify it by counting the vocabulary, not by reading its size: DeepSeek-V3's 128K vocabulary holds more Han tokens than Qwen3's 152K.
 5. **Pre-tokenization is the most under-discussed part of tokenizer design.** The regex that splits text before BPE determines whether CJK is handled well, whether numbers are efficient, and whether indentation is preserved. Most tokenizer regressions are pre-tokenizer bugs.
 6. **Byte-level BPE eliminated the unknown-token problem.** With GPT-2's byte-level approach [\[32\]](../appendix/b-references.md#32-byte-level-bpe-gpt-2--radford-et-al), any UTF-8 string tokenizes without `<unk>`. The cost is that very rare characters cost many tokens, which is part of why Chinese-optimized tokenizers matter.
 7. **Code and chat tokens are added at design time.** Function-calling tokens, FIM tokens, chat template markers — these are added to the vocabulary before pre-training. Adding them later requires a partial re-train.
@@ -549,8 +662,8 @@ The next chapter covers the model architecture: the choices in attention, MoE, a
 **References for this chapter**
 
 - [\[1\] DeepSeek-V3 Technical Report](../appendix/b-references.md#1-deepseek-v3) — for the DeepSeek-V3 tokenizer description (128K BPE, bilingual EN/ZH).
-- [\[5\] Llama 3 Herd of Models](../appendix/b-references.md#5-llama-3) — for the Llama-3 tokenizer description (128K BPE, byte-level, code-aware whitespace).
-- [\[6\] Qwen3 Technical Report](../appendix/b-references.md#6-qwen3) — for the Qwen3 tokenizer description (152K BPE, Chinese-heavy).
+- [\[5\] Llama 3 Herd of Models](../appendix/b-references.md#5-llama-3) — for the Llama-3 tokenizer description (128K BPE: 100K from tiktoken plus 28K for non-English languages).
+- [\[6\] Qwen3 Technical Report](../appendix/b-references.md#6-qwen3) — for the Qwen3 tokenizer description (byte-level BPE, 151,669 tokens).
 - [\[24\] SentencePiece](../appendix/b-references.md#24-sentencepiece) — Kudo and Richardson, the Unigram / BPE implementation.
 - [\[31\] BPE (Sennrich et al., 2016)](../appendix/b-references.md#31-bpe-sennrich-et-al) — the original Byte-Pair Encoding for neural NLP.
 - [\[32\] Byte-level BPE (GPT-2 / Radford et al., 2019)](../appendix/b-references.md#32-byte-level-bpe-gpt-2--radford-et-al) — the byte-level BPE used in GPT-2, Llama, and most modern open models.

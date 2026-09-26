@@ -1,0 +1,3 @@
+# Chapter numbers and file names stay stable through the refresh
+
+The 2026-09 audit proposed reorganising Part III around training signal (imitation and distillation, reward signals, the policy-gradient family, RL systems), which would renumber chapters 11–19. We keep every chapter number and file name instead, and do the reframing inside chapters: retitles are allowed, sections can be added or split. The reason is link permanence. mdBook has no native redirects; exercises, solutions and labs are all keyed by chapter number; and outside links to chapter URLs are the book's main way of being found. The sibling book, Everything Data Structures, made the same call when it retired its chapter 26.

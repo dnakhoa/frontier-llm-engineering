@@ -110,6 +110,13 @@
 
 * [Glossary](book/appendix/a-glossary.md)
 * [References](book/appendix/b-references.md)
+* [Fact sheets](book/appendix/c-fact-sheets.md)
+  * [DeepSeek-V3](book/appendix/fact-sheets/deepseek-v3.md)
+  * [Llama 3](book/appendix/fact-sheets/llama-3.md)
+  * [Qwen3](book/appendix/fact-sheets/qwen3.md)
+  * [Mixtral](book/appendix/fact-sheets/mixtral.md)
+  * [Tokenizers](book/appendix/fact-sheets/tokenizers.md)
+* [Errata](book/appendix/d-errata.md)
 * [Style guide](book/appendix/style-guide.md)
 * [Changelog](CHANGELOG.md)
 * [Contributing](CONTRIBUTING.md)

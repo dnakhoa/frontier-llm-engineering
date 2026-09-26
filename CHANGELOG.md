@@ -6,6 +6,52 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.0.1] — 2026-09-26
+
+**A correction release.** A primary-source audit in September 2026 (`docs/audit/2026-09/`) found claims in v1.0 that the sources they cite contradict, or that the book contradicts elsewhere. This release fixes those claims — 46 errata entries — and nothing else: no chapter was refreshed, and every chapter's currency stamp still reads *early 2025*. Each correction is listed, with what the book said and what the source says, on the **[errata page](book/appendix/d-errata.md)**. They are not repeated here.
+
+The worst of them, so you know the scale:
+
+- DeepSeek-V3's parallelism layout was wrong in four chapters: it is PP16 × EP64 across 8 nodes, not PP4 × EP8.
+- Chapter 7 block-quoted a sentence that is not in the V3 report.
+- Every tokenizer config in Chapter 4 differed from the published file, and the chapter's CJK story ran backwards.
+- Chapter 10, the V3 case study, quoted the report five times with text it does not contain, and described a loss curve it does not publish.
+- More than a dozen worked answers changed, and two exercises (5.3 and 5.4) reverse their conclusions. The errata say what changes for each.
+
+### Added
+- **Errata page** (`book/appendix/d-errata.md`). Each entry gives what the book said, what the source says, where it appeared and the version that fixed it, and, for changed answers, what changes for readers who already did the exercise.
+- **Fact sheets** (`book/appendix/c-fact-sheets.md`): DeepSeek-V3, Llama 3, Qwen3, Mixtral and the three case-study tokenizers. Every fact carries a pinpoint citation; chapters link to the fact instead of restating it (ADR 0002).
+- **Generated real configs.** `tools/fetch_config_snapshots.py` downloads a published file at a pinned commit and refuses it unless its hash matches the official repository's (so a gated file can be taken from a mirror only if it is provably identical). `tools/build_configs.py` renders the blocks from committed snapshots, and its `--check` mode runs in CI. Every other config block is labelled illustrative (ADR 0003).
+- **Currency stamps** on all 26 chapters. They give the month a chapter was last checked against the field; only a refresh moves them.
+- **Checker rules and tests.** `tools/check_structure.py` now enforces stamps, errata completeness and fact-sheet citations. It and the config generator are tested against fixture books (`tools/test_*.py`), and CI runs the tests.
+- **Glossary and decision records** (`CONTEXT.md`, `docs/adr/`), and the full audit reports (`docs/audit/2026-09/`), labelled unverified leads included.
+- **References 97 and 98** (GPipe; Narayanan et al.), which the pipeline-schedule sections had credited to the wrong papers.
+
+### Changed
+- `lab06` uses the H800 bandwidths DeepSeek report, V3's precision recipe and V3's batch size, and prints DeepSeek's real layout beside its own pick. `lab07` computes its headline multiplier (3.5×, not "~2×") and asserts it. `lab05`'s wrong MLA row is labelled as such.
+- The labs index and the chapters' lab notes quote full-size results. Several had quoted smoke-test numbers.
+- The README leads with what you'll build (see below).
+- **Unsupported claims softened or sourced**, which are not errata because nothing contradicts them:
+  - "XGBoost" quality classifiers
+  - "Llama-3 uses YaRN-style rescaling"
+  - Qwen3's "aggressive dedup"
+  - R1's RL prompt count
+  - "EP is usually 8"
+  - a 4–8 hour MTBF "at 2,048-GPU scale"
+  - V3's mid-training "exactly" matching a recipe
+  - the annealing phase providing "most" benchmark gains
+  - Qwen's "Chinese-heavy corpora"
+- The contributor guide and style guide define never-true, stale and unsupported claims, and make a **citation check** against the primary source a merge requirement for any claim about a source.
+
+### Not changed, on purpose
+Stale claims — ones that were true when written and have since been overtaken — are left for the refreshes (v1.1: Chapters 8 and 11–19; v1.2: 3, 4, 5, 9, 10, 22, 23; v1.3: the rest). That includes everything that post-dates early 2025: DeepSeek-V4, Muon, FP4, the GRPO successors, on-policy distillation and agentic RL.
+
+## [1.0] — 2026-08-31
+
+The book as first published, tagged `v1.0`. It is kept unchanged as the record that the
+[errata page](book/appendix/d-errata.md) quotes from: the 2026-09 audit found claims in it
+that contradict their own sources, and v1.0.1 corrects them.
+
 ### Changed
 - **Reading-time estimates made mutually consistent.** They implied anywhere from 76 to 251 words per minute, and Chapter 7 (8,791 words) claimed *less* reading time than Chapter 23 (3,054 words). Eight chapters were raised so that none implies faster than 150 wpm; nothing was lowered, so no chapter now under-warns a reader. The remaining 76–148 wpm spread is deliberate and tracks difficulty. The style guide records both rules.
 - **The style guide's own Length section was wrong.** It gave long chapters as 3,000–5,000 words and listed Chapters 3, 6, 7, 8, 10, 13, 15, 19, 20, 22 as "in this range" — but Chapters 6, 7, 8 and 10 are 6,497–8,791 words, and Chapter 5 (7,378) was not listed at all. Its total target of ~80,000–100,000 words was also stale against an actual ~116,000. Replaced with measured bands and a rule for checking new chapters.

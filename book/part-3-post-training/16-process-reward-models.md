@@ -2,6 +2,8 @@
 
 > Reading time: ~35 minutes. By the end of this chapter you should understand the difference between outcome and process supervision, how PRMs get their step labels without armies of human annotators, the three ways to spend compute at inference time and how each scales, and why the most successful reasoning model of the era explicitly tried process reward models and abandoned them. You should be able to decide whether a PRM is worth building for your problem.
 
+*Current as of early 2025.*
+
 ## 16.1 The right answer for the wrong reasons
 
 Chapter 15's reward function asks one question: is the final answer correct?

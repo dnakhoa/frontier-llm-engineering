@@ -2,6 +2,8 @@
 
 > Reading time: ~35 minutes. By the end of this chapter you should understand what a reward model is, how the Bradley-Terry objective turns pairwise preferences into a scalar score, why length bias and reward hacking are structural rather than incidental, and why the field has been steadily replacing learned reward models with verifiable ones wherever it can. You should be able to look at a post-training pipeline and identify which of its problems are actually reward-model problems.
 
+*Current as of early 2025.*
+
 ## 12.1 The component that decides whether any of it works
 
 Every technique in the rest of Part III needs a way to say *this response is better than that one*. Rejection sampling (§11.10) needs it to pick the winner. PPO needs it as the reward signal. DPO folds it into the loss but still depends on the preferences that would have trained it. Best-of-$n$ needs it to rank.
