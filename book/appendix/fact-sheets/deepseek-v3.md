@@ -21,6 +21,7 @@ Checked against the source: 2026-09-26.
 
 | Fact | Value | Source |
 |---|---|---|
+| Training framework | HAI-LLM, "an efficient and lightweight training framework crafted by our engineers from the ground up". The report does not describe its checkpointing or failure-recovery system | [V3] §3.2 |
 | Pipeline parallelism | 16-way (PP16), scheduled with DualPipe | [V3] §3.2, §3.2.1 |
 | Expert parallelism | 64-way (EP64), spanning 8 nodes; each layer's routed experts are spread evenly over 64 GPUs | [V3] §3.2, §4.2 |
 | Data parallelism | ZeRO-1 | [V3] §3.2 |
@@ -83,14 +84,14 @@ Checked against the source: 2026-09-26.
 
 | Fact | Value | Source |
 |---|---|---|
-| Optimizer | AdamW, β₁ = 0.9, β₂ = 0.95, weight decay 0.1 | [V3] §4.2 |
+| Optimizer | AdamW, β₁ = 0.9, β₂ = 0.95, weight decay 0.1. The report gives one weight-decay value and no separate value for the embedding or output head | [V3] §4.2 |
 | Pre-training tokens | 14.8T | [V3] §4.2 |
 | Pre-training sequence length | 4K | [V3] §4.2 |
 | Learning-rate warmup | Linear from 0 to 2.2×10⁻⁴ over the first 2K steps | [V3] §4.2 |
 | Learning-rate schedule | Constant 2.2×10⁻⁴ until 10T tokens; cosine decay to 2.2×10⁻⁵ over the next 4.3T; then constant 2.2×10⁻⁵ for 333B tokens and 7.3×10⁻⁶ for the final 167B (10T + 4.3T + 0.5T = 14.8T) | [V3] §4.2 |
 | Batch size | Ramped from 3,072 to 15,360 over the first 469B tokens, then 15,360 | [V3] §4.2 |
 | Gradient clipping | Norm 1.0 | [V3] §4.2 |
-| Stability | No irrecoverable loss spikes and no rollbacks in the whole run. The report publishes no loss-spike policy and no main-run loss curve | [V3] §1 |
+| Stability | No irrecoverable loss spikes and no rollbacks in the whole run. The report publishes no loss-spike policy, no main-run loss curve, and no interruption count or MTBF | [V3] Abstract, §1 |
 | FP8 vs BF16 validation | Relative loss error of FP8 below 0.25% vs a BF16 baseline, at two smaller scales (~16B and ~230B MoE) over ~1T tokens; curves in Figure 10 | [V3] §3.3, Appendix B.1 |
 
 ## Context extension, post-training and cost

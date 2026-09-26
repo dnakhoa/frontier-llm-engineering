@@ -104,7 +104,7 @@ The text as first published is tagged `v1.0` in the repository, so every "the bo
 
 - **The book said:** "Optimizer state in FP32 … This is non-negotiable." Solution 8.4 gave V3's high-precision components as "the optimizer state and the master weights. Already FP32".
 - **The source says:** V3 stored AdamW's first and second moments in **BF16** "without incurring observable performance degradation", keeping only master weights and gradients in FP32 (§3.3.3) ([fact sheet](fact-sheets/deepseek-v3.md#precision)).
-- **Where:** Chapter 8 §8.7; Solution 8.4; Solution 21.1, whose V3 checkpoint size assumed FP32 moments.
+- **Where:** Chapter 8 §8.7; Solution 8.4; Solution 21.1, whose V3 checkpoint size assumed FP32 moments; Chapter 8 §8.3 ("This is essential") and §8.8 ("it is not fine").
 - **Fixed in:** v1.0.1
 - **If you worked this before v1.0.1:** Solution 21.1 part 3 still gives 8 TB under the exercise's 12 B/param recipe, and now adds V3's actual **5.4 TB (54 s)** at 8 B/param.
 
@@ -112,7 +112,7 @@ The text as first published is tagged `v1.0` in the repository, so every "the bo
 
 - **The book said:** the schedule was warmup then "cosine decay to 10% of peak over the remainder of training"; the batch ramped "from ~2M tokens to ~19M tokens" (or 2,304 to 14,400 sequences) "in the first 1.3% of training"; there were "roughly 18,000 steps at global batch 8,192"; ε was 1e-8; and "DeepSeek-V3 uses this pattern: skip a window of ~200 batches after a spike, reduce the LR by 50%".
 - **The source says:** the LR is held **constant** at 2.2×10⁻⁴ until 10T tokens, then decays by cosine to 2.2×10⁻⁵ over 4.3T, then steps down over the last 500B. The batch ramps from **3,072 to 15,360** sequences over the first **469B** tokens (~3%). That makes ~235K steps (our arithmetic). The report gives no ε and no spike policy; it reports no irrecoverable spikes and no rollbacks (§1, §4.2) ([fact sheet](fact-sheets/deepseek-v3.md#optimizer-and-schedule)).
-- **Where:** Chapter 8 §8.13, §8.14, §8.15; Chapter 10 §10.9.
+- **Where:** Chapter 8 §8.13, §8.14, §8.15; Chapter 10 §10.9; Chapter 8 §8.4's LR table and worked example, §8.15's four-way table and takeaway, and takeaway 2.
 - **Fixed in:** v1.0.1
 
 ### E-015 — DeepSeek-V3's data, tokenizer, and training dynamics: quotations and figures not in the report
@@ -137,56 +137,91 @@ The text as first published is tagged `v1.0` in the repository, so every "the bo
 - **Where:** Chapter 10 §10.12 and §10.13.
 - **Fixed in:** v1.0.1
 
-### E-018 — lab06's H800 bandwidths, and the layout it recommended for DeepSeek-V3
+### E-018 — DeepSeek-V3's reliability and recovery, as Chapter 7 told it
+
+- **The book said:** the V3 report says the run "suffered only a few unexpected interruptions" and that NVLink errors were "a non-trivial fraction of their failures"; "the DeepSeek team has stated publicly that they target 2–4 hour MTBF"; DeepSeek "encountered silent corruption during the V3 run and recovered by rolling back to a clean checkpoint"; the `DualPipe` and `DeepEP` repositories "include asynchronous checkpointing code" and "confirm" the chapter's NCCL settings; the V3 paper calls a 16-node group a "pod"; and V3 "builds on" Megatron-LM's "`PersistentWorker` model" of worker-level recovery.
+- **The source says:** the report contains none of these. It gives no interruption count, MTBF or NVLink failure figure, and never uses "pod". On stability it says the opposite of a rollback: no irrecoverable loss spikes and no rollbacks (Abstract, §1). V3 was trained on HAI-LLM, DeepSeek's in-house framework (§3.2), not Megatron-LM. `DualPipe` (@030ce43) is a pipeline-scheduling library and `DeepEP` (@a56d615) a communication library; neither contains checkpointing code or sets those NCCL variables. Megatron-LM (@d113016) has no `PersistentWorker`; it has a persistent async checkpoint writer and an optional in-process restart. See the [fact sheet](fact-sheets/deepseek-v3.md#parallelism-layout).
+- **Where:** Chapter 7 §7.2, §7.5.2, §7.6, §7.7, §7.7.1, §7.8, §7.11 and §7.13.
+- **Fixed in:** v1.0.1
+
+### E-019 — A Qwen3 cluster the Qwen3 report does not describe
+
+- **The book said:** Chapter 7 anchored its "Chinese-side view" on "the Qwen3 / Panjin cluster", said "the Alibaba Panjin cluster (Qwen) is similarly liquid-cooled", cited [6] as "the case study for the Qwen3 cluster at Alibaba Panjin", said Qwen3 places tensor parallelism inside a node, and said "the Qwen3 team's public talks" mention hot-spare optimizer replication.
+- **The source says:** the Qwen3 report describes no training hardware, cluster, site or parallelism layout; "Panjin" and "cluster" do not appear in it, and "GPU" appears only as GPU-hours in its distillation comparison (§4, §4.7). No talk was cited. See the [fact sheet](fact-sheets/qwen3.md#pre-training-stages).
+- **Where:** Chapter 7 §7.1, §7.3, §7.10, §7.11 and the chapter's reference note for [6].
+- **Fixed in:** v1.0.1
+
+### E-020 — Qwen3's optimizer recipe
+
+- **The book said:** Qwen3 uses AdamW with β₁ 0.9, β₂ 0.95, ε 1e-8 and weight decay 0.1; a peak LR of 7e-5 for the 235B MoE and 2e-4 for the 32B; 0.5% warmup; cosine decay to a 10% floor; a batch of "~16M–32M tokens, held constant"; BF16; and a gradient clip of 1.0.
+- **The source says:** none of these values is published. The report says learning rate and batch size are predicted per model from scaling laws over its three pre-training stages, and that the S2 stage accelerates learning-rate decay; it names no optimizer and gives no warmup, floor, weight decay, clipping threshold or precision ([Qwen3] §3.2). See the [fact sheet](fact-sheets/qwen3.md#pre-training-stages).
+- **Where:** Chapter 8 §8.4 (the LR table and text), §8.6, §8.15 (the Qwen3 recipe and the four-way table).
+- **Fixed in:** v1.0.1
+
+### E-021 — DeepSeek-V3 details Chapter 8 invented
+
+- **The book said:** the V3 paper "specifically calls out a custom fused cross-entropy" that lets it train at FP8, and V3 "keeps the cross-entropy in FP32"; V3 uses a higher weight decay "(e.g., 0.2) for the embedding and the LM head"; and V3's "per-block learning rate schedule … is consistent with the µP framework".
+- **The source says:** the report does not discuss a cross-entropy kernel; it keeps the output head, with the embedding, gating, norms and attention, in BF16 or FP32 (§3.3.1). It gives a single weight_decay of 0.1 (§4.2), describes one global learning-rate schedule (§4.2), and does not mention µP. See the [fact sheet](fact-sheets/deepseek-v3.md#optimizer-and-schedule).
+- **Where:** Chapter 8 §8.2, §8.3, §8.5, §8.8 and §8.12.
+- **Fixed in:** v1.0.1
+
+### E-022 — Which way distillation runs, in Chapter 8
+
+- **The book said:** training "a smaller model on more data and distilling it into a larger model" is "the 'small models, big data' approach that Qwen3, Llama 3, and DeepSeek-V3 all use for some of their model variants".
+- **The source says:** Qwen3 distils from larger models into its lightweight ones, 0.6B–14B dense and 30B-A3B ("Strong-to-Weak Distillation", [Qwen3] §4.5). Llama 3 names distilling larger models into smaller ones only as an alternative, and trains its small models far beyond compute-optimal instead ([Llama3] §9.1). DeepSeek-V3 has no smaller variants. See the [fact sheet](fact-sheets/qwen3.md#post-training).
+- **Where:** Chapter 8 §8.11.
+- **Fixed in:** v1.0.1
+
+### E-023 — lab06's H800 bandwidths, and the layout it recommended for DeepSeek-V3
 
 - **The book said:** `lab06` modelled the 2,048-H800 cluster with NVLink 200 GB/s and InfiniBand 25 GB/s (8×), searched it with FP32 Adam moments and a 4M-token batch, and concluded that "TP and EP belong inside a node".
 - **The source says:** DeepSeek report NVLink **160 GB/s** and InfiniBand **50 GB/s** (3.2×) for this cluster, BF16 moments, and a batch of 15,360 × 4K ≈ 63M tokens. They ran EP=64 across 8 nodes ([fact sheet](fact-sheets/deepseek-v3.md#cluster-and-interconnect)). The lab now uses those values. It also prints DeepSeek's real layout next to its own pick: with the all-to-all charged as exposed, the real layout looks ~26× slower, but once the all-to-all is overlapped, which is DualPipe's purpose, it matches the pick. The gap measures what the calculator leaves out.
 - **Where:** `lab06_parallelism_memory_model` sections 6, 8, 9, "Things to try" 4 and takeaway 4.
 - **Fixed in:** v1.0.1
 
-### E-019 — lab07's headline multiplier
+### E-024 — lab07's headline multiplier
 
 - **The book said:** `lab07` printed that Ethernet versus InfiniBand is "a ~2x throughput difference", and the labs README and Chapter 7 repeated "~2×".
 - **The source says:** the lab's own rows give 8.0 s per step on InfiniBand and 28.0 s on 100G Ethernet, a **3.5×** difference. The printed figure is now computed from those rows and asserted, as the style guide requires of every printed claim.
 - **Where:** `lab07_collective_bandwidth` section 7; `labs/README.md`; Chapter 7's lab note.
 - **Fixed in:** v1.0.1
 
-### E-038 — DeepSeek-V2's 93.3% KV-cache saving, measured against the wrong baseline
+### E-025 — DeepSeek-V2's 93.3% KV-cache saving, measured against the wrong baseline
 
 - **The book said:** "the DeepSeek team reports a 93.3% reduction vs MHA on a 128K context" (Chapter 5), and "DeepSeek-V2 reports a KV cache reduction of roughly 93% against its MHA baseline" (Chapter 22). Chapter 5 also computed V3's saving as $16384/512 = 32×$.
 - **The source says:** DeepSeek-V2 "reduces the KV cache by 93.3%" *compared with DeepSeek 67B*, which uses grouped-query attention, not MHA (DeepSeek-V2 abstract; DeepSeek LLM §2.1). Against full MHA with V3's 128 heads, V3's 576 cached values per token per layer are ~57× smaller (our arithmetic; [fact sheet](fact-sheets/deepseek-v3.md#architecture)).
 - **Where:** Chapter 5 §5.3.1; Chapter 22 §22.3; Solution 1.6.
 - **Fixed in:** v1.0.1
 
-### E-039 — Packing masks, and a buggy NTK formula
+### E-026 — Packing masks, and a buggy NTK formula
 
 - **The book said:** Chapter 3 said packing "is done with attention masks that prevent cross-document attention", as if every lab did. Chapter 9's `rescale_inv_freq_ntk` computed the new base as `inv_freq.max() ** (dim / (dim - 2))`.
 - **The source says:** labs differ. Llama 3 masks across documents and reports it had limited impact in standard pre-training (§3.2); DeepSeek-V3 packs "without cross-sample attention masking" (§4.1). `inv_freq.max()` is 1.0, so the old code set every frequency to 1. The book's own formula in §9.10 is $\text{base}' = \text{base} \cdot (L_\text{new}/L_\text{orig})^{d/(d-2)}$, which `lab09` implements; the code now matches it and was checked against the lab.
 - **Where:** Chapter 3 §3.3.9; Chapter 9 §9.13.
 - **Fixed in:** v1.0.1
 
-### E-040 — Pipeline schedules credited to the wrong papers
+### E-027 — Pipeline schedules credited to the wrong papers
 
 - **The book said:** the GPipe schedule was "from Google" and cited the Megatron-LM paper [3]. The interleaved 1F1B schedule was "a refinement from Megatron-V3 (2021)".
 - **The source says:** the GPipe schedule is from Huang et al., "GPipe" (arXiv:1811.06965). The interleaved schedule is from Narayanan et al., "Efficient Large-Scale Language Model Training on GPU Clusters Using Megatron-LM" (arXiv:2104.04473). There is no paper called Megatron-V3. Both are now references [97] and [98].
 - **Where:** Chapter 6 §6.6.
 - **Fixed in:** v1.0.1
 
-### E-041 — Attributions with nothing behind them in Chapters 9, 23 and 26
+### E-028 — Attributions with nothing behind them in Chapters 9, 23 and 26
 
 - **The book said:** "The Qwen3 and DeepSeek-V3 papers hint at a pattern where the annealing phase is followed directly by SFT" (Chapter 9). "Llama 3 and DeepSeek both discuss decontamination in their reports" (Chapter 23). Chapter 26 said what labs withhold is "the algorithm, not the data", citing Chapter 19 §19.8.
 - **The source says:** both the Qwen3 and V3 reports run post-training as separate stages on the base model (V3 §5.1; Qwen3 §4), and the DeepSeek-V3 report does not discuss decontamination; Llama 3 does (§5.1.4). Chapter 19 §19.8 says the opposite of Chapter 26: labs withhold **the data, not the algorithm**. Chapter 26 now agrees with it.
 - **Where:** Chapter 9 §9.6; Chapter 23 §23.5 and its reference note; Chapter 26 §26.8.
 - **Fixed in:** v1.0.1
 
-### E-020 — Lab descriptions that quoted smoke-test numbers
+### E-029 — Lab descriptions that quoted smoke-test numbers
 
 - **The book said:** the labs index described `lab03` as recalling "~26%" of duplicates with exact hashing, `lab04` as showing a "~1.8×" Vietnamese penalty, `lab08_scaling_laws` as misplacing E by "+0.47 nats", and `lab22` as "86.9%" fragmentation and a "3.3×" continuous-batching speedup, and `lab13` as a corrupted reward commanding "~16%" of the batch gradient, all beside full-size runtimes.
 - **The source says:** those are the numbers the labs print under `FLE_SMOKE_TEST=1`. At full size, which is how the index describes them, the labs print **47.7%**, **2.05×**, **+0.266 nats**, **86.5%** and **5.78×**, and `lab13` prints **17%** (its smoke value is 12%; the old 16% matched neither). The lessons are unchanged, but the numbers were not what a reader running the lab would see. The index now quotes full-size runs, and `lab20`'s `torch.compile` speedup is described as the machine-dependent timing it is.
 - **Where:** `labs/README.md`; the lab notes in Chapters 13 and 22.
 - **Fixed in:** v1.0.1
 
-### E-021 — The Llama 3 data mix, corpus and dedup
+### E-030 — The Llama 3 data mix, corpus and dedup
 
 - **The book said:** Llama-3's mix was "~50% English web, ~25% code, ~10% multilingual, ~7.5% academic, ~7.5% 'other'"; its 15.6T tokens were "for the 8B model"; it used "aggressive dedup with MinHash and suffix arrays"; and it checked contamination "against 32 benchmarks".
 - **The source says:** roughly 50% general knowledge, 25% mathematical and reasoning, 17% code and 8% multilingual, with no academic bucket. 15.6T is the 405B flagship's count; the corpus is "about 15T". Dedup is URL-level, document-level (global MinHash) and line-level; suffix arrays are not mentioned. The contamination table covers 21 benchmarks. See the [fact sheet](fact-sheets/llama-3.md#pre-training-data).
@@ -194,7 +229,7 @@ The text as first published is tagged `v1.0` in the repository, so every "the bo
 - **Fixed in:** v1.0.1
 - **If you worked this before v1.0.1:** in Exercise 3.6 part 1, the mix is 50 / 25 / 17 / 8 by knowledge domain, not the old 50 / 25 / 10 / 7.5 by source type. Code and reasoning are separate buckets, and math-and-reasoning is the larger one. For part 3, the answer is 21 benchmarks, not 32.
 
-### E-022 — Three things Chapter 3 attributed to the Llama papers
+### E-031 — Three things Chapter 3 attributed to the Llama papers
 
 - **The book said:** the Llama-3 paper reports books from "a larger, more carefully curated corpus"; "the Llama-2 paper introduced" training a quality classifier on labels from Llama-2; and the Llama-3 paper discusses "how they re-checked for contamination after every major data update". Solution 3.6 listed the classifier's architecture as undisclosed.
 - **The source says:** the Llama 3 report does not describe a books source, and the quoted phrase is not in it. The classifier trained on Llama 2's labels is Llama 3's (fastText and DistilRoberta, [Llama3] §3.1.1). Its contamination section is a single 8-gram overlap analysis, with no re-check after data updates ([Llama3] §5.1.4). See the [fact sheet](fact-sheets/llama-3.md#pre-training-data).
@@ -202,77 +237,77 @@ The text as first published is tagged `v1.0` in the repository, so every "the bo
 - **Fixed in:** v1.0.1
 - **If you worked this before v1.0.1:** in Exercise 3.6 part 4, "the classifier's architecture" is no longer a valid answer, because the paper gives it. What the paper withholds is the classifier's weights, labelled training set and threshold.
 
-### E-023 — Llama 3's long-context and annealing recipe
+### E-032 — Llama 3's long-context and annealing recipe
 
-- **The book said:** Llama-3's annealing was "the last few percent of pre-training", on a mix that "downsamples web" and adds "more books, more papers", decayed "to a small floor", with the model "evaluated frequently". Llama-3 was the example of a *two*-stage schedule. The illustrative annealing block's bulk column repeated the wrong mix of E-021. Chapter 5 said Llama-3 reached 128K "via RoPE scaling + fine-tune".
+- **The book said:** Llama-3's annealing was "the last few percent of pre-training", on a mix that "downsamples web" and adds "more books, more papers", decayed "to a small floor", with the model "evaluated frequently". Llama-3 was the example of a *two*-stage schedule. The illustrative annealing block's bulk column repeated the wrong mix of E-030. Chapter 5 said Llama-3 reached 128K "via RoPE scaling + fine-tune".
 - **The source says:** Llama 3 405B has three stages. Context goes from 8K to 128K in six stages over about 800B tokens of continued pre-training. Annealing is the final 40M tokens (about 0.0003% of 15.6T), at 128K, with the LR annealed linearly to 0, very high-quality sources upsampled, and the base model an average of checkpoints from that phase. The report gives no annealing ratios, and mentions neither books nor downsampling web there. See the [fact sheet](fact-sheets/llama-3.md#long-context-and-annealing).
 - **Where:** Chapter 9 §9.1, §9.4 (text and the annealing-mix block), §9.6; Chapter 5 §5.14.2.
 - **Fixed in:** v1.0.1
 
-### E-024 — Chapter 7's failure taxonomy contradicted Llama 3 and Chapter 21
+### E-033 — Chapter 7's failure taxonomy contradicted Llama 3 and Chapter 21
 
 - **The book said:** "GPU failures are not the dominant cause of run interruptions", ranking network events first at 40–50%, filesystem events at 20–30%, and GPU hardware at 10–20%. Chapter 21 gave Llama 3's numbers correctly, so the book contradicted itself.
 - **The source says:** of 419 unexpected interruptions in Llama 3's 54-day snapshot, GPU issues were the largest category at 58.7%, and about 78% were confirmed or suspected hardware. Software bugs were 12.9% and network switches and cables 8.4%. Filesystems and cooling are not categories at all ([Llama3] §3.3.4, Table 5). Chapter 7 now gives the same breakdown as Chapter 21; see the [fact sheet](fact-sheets/llama-3.md#reliability).
 - **Where:** Chapter 7 §7.12.
 - **Fixed in:** v1.0.1
 
-### E-025 — Chapter 7's MTBF figures
+### E-034 — Chapter 7's MTBF figures
 
 - **The book said:** "The Llama-3 paper reports an MTBF of 'a few hours'", and a per-GPU MTBF at frontier load is "closer to 8–24 hours". §7.12's table assumed "a per-GPU MTBF of 16 hours". The Llama-3 paper was said to discuss silent data corruption "but does not give numbers", and to mention in-memory optimizer replication on hot-spare nodes.
 - **The source says:** the report gives no MTBF and does not contain that phrase. It gives 419 unexpected interruptions in 54 days: one every ~3.1 hours, or about 51,000 GPU-hours per interruption from all causes (our arithmetic). A per-GPU MTBF of 8–24 hours would mean a failure every few seconds on 16K GPUs. It also contradicted §7.12's own table, which works out at about 16,000 hours per GPU, and Chapter 21's 50,000. Silent data corruption caused 6 interruptions (1.4%, Table 5). The report does not describe hot spares. See the [fact sheet](fact-sheets/llama-3.md#reliability).
 - **Where:** Chapter 7 §7.7.1, §7.8, §7.11 and §7.12.
 - **Fixed in:** v1.0.1
 
-### E-026 — Llama 3's network and collective library
+### E-035 — Llama 3's network and collective library
 
 - **The book said:** the Llama-3 cluster sat in Meta's "two-by-two" data-center fabric, on "a customized Arista 7800R3 fabric", and Meta used "a custom NCCL plugin ('nccl-core' plugins)".
 - **The source says:** neither quoted name is in the report. It describes a 24K-GPU RoCE cluster, a three-layer Clos network of 3,072-GPU pods built from Arista 7800 and Minipack2 switches, of which Llama 3 used up to 16K GPUs. The collective library is NCCLX, Meta's fork of NCCL ([Llama3] §3.3.1, §3.3.3). See the [fact sheet](fact-sheets/llama-3.md#infrastructure-and-parallelism).
 - **Where:** Chapter 7 §7.2, §7.3.3 and §7.5.2.
 - **Fixed in:** v1.0.1
 
-### E-027 — Llama 3's training cost
+### E-036 — Llama 3's training cost
 
 - **The book said:** the Llama-3 405B cost "is reported at 'tens of millions of dollars'", and its cost example took 19.2M H100-hours as consistent with "the reported number". Chapter 10 gave "~16,000 H100-hours × 30M H100-hours" and said "Meta has not published a precise number".
 - **The source says:** neither the report nor the model card gives a dollar figure, so there was no reported number to be consistent with. Meta's Llama 3.1 model card does publish the compute: 30.84M H100 GPU-hours for the 405B ([L31-card] @e2e67cd). The Chapter 10 product multiplied two quantities in the same unit. Both chapters now start from 30.84M GPU-hours, with the dollar price labelled as our assumption. See the [fact sheet](fact-sheets/llama-3.md#compute).
 - **Where:** Chapter 7 §7.15; Chapter 10 §10.11.
 - **Fixed in:** v1.0.1
 
-### E-028 — Llama 3's FSDP settings and context parallelism
+### E-037 — Llama 3's FSDP settings and context parallelism
 
 - **The book said:** "The Meta team reported a per-block wrapping policy with `BACKWARD_PRE` prefetching". §6.13 gave Llama-3's layout with "sequence length up to 8K, so no CP needed".
 - **The source says:** the report gives no wrapping policy or prefetch setting. It uses 4D parallelism in the order [TP, CP, PP, DP], with DP as FSDP. Table 4 has a 128K-context row on the same 16,384 GPUs with CP = 16 and DP = 8 ([Llama3] §3.3.2, Table 4). Context parallelism is part of the Llama 3 layout. See the [fact sheet](fact-sheets/llama-3.md#infrastructure-and-parallelism).
 - **Where:** Chapter 6 §6.4, §6.13 and takeaway 8.
 - **Fixed in:** v1.0.1
 
-### E-029 — Llama 3's optimizer recipe
+### E-038 — Llama 3's optimizer recipe
 
 - **The book said:** a "Llama 3 (70B)" recipe of AdamW with β₂ = 0.95, ε = 10⁻⁸ and weight decay 0.1, cosine decay "to 10% of peak", a batch of "~16M tokens, held constant", gradient clipping 1.0, and a "critical batch size ~4M tokens … trained at ~4× CBS". Elsewhere: Llama 3 "uses" rollback "for catastrophic spikes", used "a constant global batch size of ~16M tokens" for the 8B, and trained the 8B and 70B on 15.6T tokens.
 - **The source says:** the report publishes the recipe for the **405B** only, and says the 8B and 70B use "similar recipes". For the 405B: peak LR 8×10⁻⁵, 8,000 warmup steps, cosine decay to 8×10⁻⁷ (1% of peak), and a batch ramped 4M → 8M → 16M tokens. It reports no β, ε, weight decay, clipping threshold or critical batch size. The run saw "few loss spikes" and needed no interventions. The corpus is "about 15T" tokens; 15.6T is the 405B's count ([Llama3] §1, §3.4.1). The peak LRs for the 8B and 70B (Table 3) were right, and stay. See the [fact sheet](fact-sheets/llama-3.md#training-recipe).
 - **Where:** Chapter 8 §8.4 (the LR table), §8.6, §8.10, §8.11, §8.13, §8.14 and §8.15 (the Llama 3 recipe and the four-way comparison table).
 - **Fixed in:** v1.0.1
 
-### E-030 — FP8 attributed to Llama 3.1 training
+### E-039 — FP8 attributed to Llama 3.1 training
 
 - **The book said:** FP8 training was adopted by "subsequent frontier runs (Llama-3.1 onward, …)", and the glossary said FP8 is used in frontier training by "DeepSeek-V3, Llama-3.1 onwards". Chapter 5 said FP8 was "added in some Llama-3.1 variants".
 - **The source says:** the Llama 3 report uses FP8 only as a quantization for 405B inference ([Llama3] §6.2); training MFU is reported against BF16 ([Llama3] Table 4). Llama 3.1 was also released before DeepSeek-V3, so it cannot be a subsequent run. See the [fact sheet](fact-sheets/llama-3.md#training-recipe).
 - **Where:** Chapter 10 §10.13; Chapter 5 §5.14.2; the glossary entry for FP8.
 - **Fixed in:** v1.0.1
 
-### E-031 — The SwiGLU width rule and Llama 3
+### E-040 — The SwiGLU width rule and Llama 3
 
 - **The book said:** the rule $d_\text{ff} = \frac{8}{3} d_\text{model}$ "gives $d_\text{ff} \approx 28672$ (the published value)" for Llama-3-70B, and §5.14.2 wrote $28672$ as $8/3 \cdot 8192$, rounded.
 - **The source says:** 8/3 × 8,192 is about 21,845. Llama 3's published FFN width is 28,672 (Table 3), which is 3.5 × 8,192: wider than the rule, at every size. The arithmetic is ours; the values are in the [fact sheet](fact-sheets/llama-3.md#architecture).
 - **Where:** Chapter 5 §5.7 and §5.14.2.
 - **Fixed in:** v1.0.1
 
-### E-032 — Llama 3's tokenizer and code
+### E-041 — Llama 3's tokenizer and code
 
 - **The book said:** "Llama-3 specifically increased the number of merges dedicated to whitespace tokens", citing the Llama 3 report. It gave "a real tokenizer behavior" for a line of Python as 16 tokens, with a 4-space indent token and a bare `'return'`. It said Meta grew the vocabulary "citing multilingual and code improvements".
 - **The source says:** the report says nothing about whitespace, and gives English compression (3.17 → 3.94 characters per token) and non-English support as its reasons, not code ([Llama3] §3.2). In the published `tokenizer.json`, every whitespace-run token has an ID below 100,000, so none is among the 28K tokens Meta added. The published tokenizer encodes the example line as 17 tokens: `'   '` then `' return'`, and `' '` then `'0'`. See the [tokenizer fact sheet](fact-sheets/tokenizers.md#llama-3).
 - **Where:** Chapter 4 §4.7 and §4.10, and the chapter's reference note for [5].
 - **Fixed in:** v1.0.1
 
-### E-033 — Qwen3's expert width and Exercise 5.4
+### E-042 — Qwen3's expert width and Exercise 5.4
 
 - **The book said:** each of Qwen3-235B's experts has "$d_\text{ff} = 12288$". Solution 5.4 built on it: "151M per expert", "**1,209M**" active expert parameters per layer. Solution 5.8's config table repeated "12,288 per expert".
 - **The source says:** the expert width is `moe_intermediate_size` = **1,536**. 12,288 is the config's `intermediate_size`, which sizes a dense FFN layer, and this model has none: all 94 layers are MoE. Only 1,536 reproduces the report's 22B active parameters; 12,288 would give about 121B. See the [Qwen3 fact sheet](fact-sheets/qwen3.md#architecture-qwen3-235b-a22b).
@@ -280,14 +315,14 @@ The text as first published is tagged `v1.0` in the repository, so every "the bo
 - **Fixed in:** v1.0.1
 - **If you worked this before v1.0.1:** the exercise's conclusion reverses. *Old conclusion:* Qwen3 has the largest experts of the three (151M each, 1,209M active per layer, three times V3's), so it sits with Mixtral on the coarse side. *New conclusion:* each Qwen3 expert is 18.9M and 151M are active per layer, the smallest of the three. Its expert width is 0.375 of the model width, close to V3's 0.29 and far from Mixtral's 3.5, so Qwen3 is a fine-grained MoE. Its eight active experts add up to one ordinary dense FFN ($8 \times 1536 = 12{,}288 = 3d$), which is what fine-grained segmentation is. *Why:* the exercise read the wrong field of the config. Exercise 5.4 now makes choosing the field part of the problem: you check each candidate against the published 22B.
 
-### E-034 — Qwen3's MoE design: shared experts, balancing and dense layers
+### E-043 — Qwen3's MoE design: shared experts, balancing and dense layers
 
 - **The book said:** the Qwen3 MoE models use "fine-grained experts and shared experts"; they use the "standard auxiliary loss with low weight", with bias-based balancing "on their roadmap". Chapter 10 said V3's auxiliary-loss-free balancing "is now used in Qwen3", and that V3's first-K-dense pattern "is now used in Qwen3".
 - **The source says:** "the Qwen3-MoE design excludes shared experts", and it adopts "the global-batch load balancing loss" ([Qwen3] §2). The report says nothing of a roadmap. The published config has no dense layers: `mlp_only_layers` is empty and `decoder_sparse_step` is 1. See the [Qwen3 fact sheet](fact-sheets/qwen3.md#architecture-qwen3-235b-a22b).
 - **Where:** Chapter 5 §5.11 and §5.14.3; Chapter 10 §10.4.3 and §10.13.
 - **Fixed in:** v1.0.1
 
-### E-035 — Qwen3's context length and RoPE recipe
+### E-044 — Qwen3's context length and RoPE recipe
 
 - **The book said:** Qwen3 was "trained at 32K directly, no extension needed", "ships a 128K variant directly trained at that context length", and uses "RoPE with dual base". Chapter 9 said Qwen3 "describes a 32K → 128K long-context extension phase", was "trained at 8K context", followed a two-stage "32K → 128K" schedule, and extended context with YaRN like Llama-3. Solution 9.7 repeated "(32K → 128K)".
 - **The source says:** three pre-training stages. S1 is over 30T tokens at 4,096; S2 is about 5T reasoning-heavy tokens at 4,096, with accelerated learning-rate decay; S3 is hundreds of billions of tokens at 32,768. During S3 the RoPE base is raised from 10,000 to 1,000,000 with ABF. 128K comes from YaRN and Dual Chunk Attention "during inference" ([Qwen3] §3.2). The released config has a single `rope_theta`. See the [Qwen3 fact sheet](fact-sheets/qwen3.md#pre-training-stages).
@@ -295,14 +330,14 @@ The text as first published is tagged `v1.0` in the repository, so every "the bo
 - **Fixed in:** v1.0.1
 - **If you worked this before v1.0.1:** Solution 9.7 part 2 said all three reports put a small single-digit share of tokens into their final phases. Qwen3 does not. Its long-context stage is about 1% of ~36T, but its reasoning stage, the one with the faster decay and the reweighted mix, is about 5T, roughly 14%.
 
-### E-036 — Qwen3's pre-training corpus
+### E-045 — Qwen3's pre-training corpus
 
 - **The book said:** Qwen3's "~36T tokens (across all stages including pre-training, mid-training, and post-training data)", with a mix "closer to 50/50 English/Chinese".
 - **The source says:** the 36T tokens are the pre-training corpus, "covering up to 119 languages and dialects" ([Qwen3] §1, §3.1). The report gives no English/Chinese split. See the [Qwen3 fact sheet](fact-sheets/qwen3.md#pre-training-data).
 - **Where:** Chapter 3 §3.2.1, §3.2.5, §3.5 and its reference note.
 - **Fixed in:** v1.0.1
 
-### E-037 — Mixtral's attention, context and parameter ratio
+### E-046 — Mixtral's attention, context and parameter ratio
 
 - **The book said:** Mixtral uses "Standard MHA … *not* GQA"; its context is "32K (extended from initial 8K training via RoPE scaling)"; and, under "From the Mixtral paper", it uses a "Standard Switch-style auxiliary loss". §5.8 said its "total parameters are $8 \times$ the active parameters".
 - **The source says:** Table 1 gives `n_heads` 32 and `n_kv_heads` 8, so Mixtral uses GQA. The model "was trained with a context size of 32k tokens", and no shorter first stage is described ([Mixtral] Abstract, §2). The paper does not describe its load-balancing loss. With 8 experts and top-2, the expert parameters are 4× the active ones; overall the model is 47B total against 13B active. See the [Mixtral fact sheet](fact-sheets/mixtral.md).

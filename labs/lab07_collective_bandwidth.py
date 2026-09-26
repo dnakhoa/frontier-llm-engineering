@@ -41,6 +41,11 @@ GB = 1e9
 # fast, once flowing), **latency** (fixed cost per message), and
 # **oversubscription** (how much of the aggregate bandwidth actually exists at
 # a given tier).
+#
+# The constants below are **H100-class** figures (NVLink 4, NDR InfiniBand).
+# The book's anchor cluster is different: DeepSeek-V3 trained on H800s, whose
+# cut-down NVLink gives about 3.2× InfiniBand, not 11×
+# ([fact sheet](../book/appendix/fact-sheets/deepseek-v3.md#cluster-and-interconnect)).
 
 
 # %%
@@ -75,8 +80,10 @@ for link in LINKS:
         f"{link.name:<38} {link.gbps:>8.0f} {link.effective_gbps:>10.1f} "
         f"{link.latency_us:>8.0f} us"
     )
-print(f"\nNVLink / InfiniBand bandwidth ratio: {NVLINK.gbps / IB_400.gbps:.0f}x")
-print("That ratio is the single most important number in Chapter 7.")
+print(f"\nNVLink / InfiniBand bandwidth ratio (H100-class links): {NVLINK.gbps / IB_400.gbps:.0f}x")
+print("That ratio is the key number in Chapter 7's H100 discussion. It is an H100 figure:")
+print("on the book's anchor cluster, DeepSeek-V3's H800s, the report gives 160 vs 50 GB/s,")
+print("about 3.2x (V3 section 3.2.2; see the DeepSeek-V3 fact sheet).")
 
 # %% [markdown]
 # ## 2. Ring all-reduce
