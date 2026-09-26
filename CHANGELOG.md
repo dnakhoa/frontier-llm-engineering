@@ -6,6 +6,12 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.0] — 2026-08-31
+
+The book as first published, tagged `v1.0`. It is kept unchanged as the record that the
+errata page quotes from: the 2026-09 audit found claims in it
+that contradict their own sources, and v1.0.1 corrects them.
+
 ### Changed
 - **Reading-time estimates made mutually consistent.** They implied anywhere from 76 to 251 words per minute, and Chapter 7 (8,791 words) claimed *less* reading time than Chapter 23 (3,054 words). Eight chapters were raised so that none implies faster than 150 wpm; nothing was lowered, so no chapter now under-warns a reader. The remaining 76–148 wpm spread is deliberate and tracks difficulty. The style guide records both rules.
 - **The style guide's own Length section was wrong.** It gave long chapters as 3,000–5,000 words and listed Chapters 3, 6, 7, 8, 10, 13, 15, 19, 20, 22 as "in this range" — but Chapters 6, 7, 8 and 10 are 6,497–8,791 words, and Chapter 5 (7,378) was not listed at all. Its total target of ~80,000–100,000 words was also stale against an actual ~116,000. Replaced with measured bands and a rule for checking new chapters.
