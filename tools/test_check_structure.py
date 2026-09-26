@@ -113,6 +113,12 @@ class StructureChecks(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("Pipeline parallelism", out)
 
+    def test_escaped_pipe_inside_a_fact_value_is_not_a_cell_boundary(self) -> None:
+        row = "| Chat marker | `<\\|eot_id\\|>` | `tokenizer.json` @1a2b3c4 |\n"
+        make_book(self.root, facts=FACTS_OK + row)
+        code, out = run(self.root)
+        self.assertEqual(code, 0, out)
+
     # --- currency stamps ----------------------------------------------------------
 
     def test_chapter_without_currency_stamp_fails(self) -> None:

@@ -88,7 +88,8 @@ def check_fact_sheets(root: Path) -> list[str]:
     for sheet in sorted((root / "book/appendix/fact-sheets").glob("*.md")):
         in_table = False
         for line in sheet.read_text().splitlines():
-            cells = [c.strip() for c in line.strip().strip("|").split("|")]
+            # a `\|` inside a cell is an escaped pipe, not a column boundary
+            cells = [c.strip() for c in re.split(r"(?<!\\)\|", line.strip().strip("|"))]
             if line.startswith("| Fact | Value | Source"):
                 in_table = True
                 continue

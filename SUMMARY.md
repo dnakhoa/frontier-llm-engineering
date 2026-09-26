@@ -112,6 +112,7 @@
 * [References](book/appendix/b-references.md)
 * [Fact sheets](book/appendix/c-fact-sheets.md)
   * [DeepSeek-V3](book/appendix/fact-sheets/deepseek-v3.md)
+  * [Tokenizers](book/appendix/fact-sheets/tokenizers.md)
 * [Errata](book/appendix/d-errata.md)
 * [Style guide](book/appendix/style-guide.md)
 * [Changelog](CHANGELOG.md)

@@ -26,6 +26,9 @@ jobs:
       - name: Every chapter has exercises, a currency stamp; errata and fact sheets are well-formed
         run: python3 tools/check_structure.py
 
+      - name: Real-config blocks match their verified snapshots
+        run: python3 tools/build_configs.py --check
+
       - name: Committed notebooks match their source labs
         run: python3 tools/build_notebooks.py --check
 

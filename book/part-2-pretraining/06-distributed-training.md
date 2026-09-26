@@ -318,9 +318,10 @@ This is roughly the pattern in Megatron-LM's MoE implementation and in DeepSeek'
 
 3D parallelism is the combination of TP, PP, and DP. It is the standard configuration for dense frontier models (Llama-3, Qwen3 dense) and the basis for MoE configurations (DeepSeek-V3, Qwen3 MoE).
 
-The Megatron-style 3D parallelism config for a 70B model on 1,024 H100s:
+An illustrative Megatron-style 3D parallelism config for a 70B dense model on 1,024 H100s (not any lab's file):
 
 ```yaml
+# ILLUSTRATIVE: not any lab's file. A 70B dense model on 1,024 H100s.
 # model
 num_layers: 80
 hidden_size: 8192

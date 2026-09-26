@@ -135,7 +135,7 @@ The Llama-3 paper [\[5\]](../appendix/b-references.md#5-llama-3) describes the a
 A typical schedule, in YAML:
 
 ```yaml
-# Three-stage training schedule (representative, not from a specific lab)
+# ILLUSTRATIVE: a representative three-stage schedule, not from a specific lab
 stages:
   - name: bulk_pretraining
     tokens: 14_000_000_000_000   # 14T

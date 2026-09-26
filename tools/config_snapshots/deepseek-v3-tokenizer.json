@@ -1,0 +1,103 @@
+{
+  "id": "deepseek-v3-tokenizer",
+  "provenance": {
+    "repo": "deepseek-ai/DeepSeek-V3",
+    "revision": "e815299b0bcbac849fa540c768ef21845365c9eb",
+    "downloaded_from": "deepseek-ai/DeepSeek-V3@e815299b0bcbac849fa540c768ef21845365c9eb",
+    "retrieved": "2026-09-26",
+    "files": {
+      "tokenizer": {
+        "path": "tokenizer.json",
+        "verified_by": "git_blob",
+        "git_blob": "51083c600ec00c7f57ae1af7fef7108c52ce7376",
+        "sha256": "621ac2e32d0dba658404412318818aaa8ce8cda492e59830109d8da6b517fb41"
+      },
+      "config": {
+        "path": "config.json",
+        "verified_by": "git_blob",
+        "git_blob": "aec35a75d9bd54d463287e655724a0aeffdb38ce",
+        "sha256": "cbf0b95dc614de208a109bb5fd4e7eed11385e9c68411d2c17db5319443035d9"
+      }
+    }
+  },
+  "tokenizer": {
+    "model_type": "BPE",
+    "byte_fallback": false,
+    "vocab_entries": 128000,
+    "merges": 127741,
+    "added_tokens": 818,
+    "special_tokens": 804,
+    "special_tokens_head": [
+      {
+        "id": 0,
+        "content": "<｜begin▁of▁sentence｜>"
+      },
+      {
+        "id": 1,
+        "content": "<｜end▁of▁sentence｜>"
+      },
+      {
+        "id": 2,
+        "content": "<｜▁pad▁｜>"
+      },
+      {
+        "id": 128000,
+        "content": "<｜place▁holder▁no▁0｜>"
+      },
+      {
+        "id": 128001,
+        "content": "<｜place▁holder▁no▁1｜>"
+      },
+      {
+        "id": 128002,
+        "content": "<｜place▁holder▁no▁2｜>"
+      }
+    ],
+    "normalizer": {
+      "type": "Sequence",
+      "normalizers": []
+    },
+    "pre_tokenizer": {
+      "type": "Sequence",
+      "pretokenizers": [
+        {
+          "type": "Split",
+          "pattern": {
+            "Regex": "\\p{N}{1,3}"
+          },
+          "behavior": "Isolated",
+          "invert": false
+        },
+        {
+          "type": "Split",
+          "pattern": {
+            "Regex": "[一-龥぀-ゟ゠-ヿ]+"
+          },
+          "behavior": "Isolated",
+          "invert": false
+        },
+        {
+          "type": "Split",
+          "pattern": {
+            "Regex": "[!\"#$%&'()*+,\\-./:;<=>?@\\[\\\\\\]^_`{|}~][A-Za-z]+|[^\r\n\\p{L}\\p{P}\\p{S}]?[\\p{L}\\p{M}]+| ?[\\p{P}\\p{S}]+[\r\n]*|\\s*[\r\n]+|\\s+(?!\\S)|\\s+"
+          },
+          "behavior": "Isolated",
+          "invert": false
+        },
+        {
+          "type": "ByteLevel",
+          "add_prefix_space": false,
+          "trim_offsets": true,
+          "use_regex": false
+        }
+      ]
+    },
+    "decoder_type": "ByteLevel"
+  },
+  "config": {
+    "vocab_size": 129280,
+    "tie_word_embeddings": false,
+    "bos_token_id": 0,
+    "eos_token_id": 1
+  }
+}

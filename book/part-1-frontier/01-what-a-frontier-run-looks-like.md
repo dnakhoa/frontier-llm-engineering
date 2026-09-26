@@ -153,9 +153,10 @@ DeepSeek-V3 was trained on 2,048 H800 GPUs, 8 per node, connected by NVLink with
 
 The surprising choice is the second one. The textbook rule is to keep the MoE all-to-all inside a node on fast NVLink, and V3 deliberately breaks it. Chapter 6 teaches the rule; Chapter 10 (§10.7) shows how V3 makes breaking it pay.
 
-A real Megatron-LM-style configuration file for a 70B-scale model on 1,024 H100s, showing the 3D-parallel layout:
+An illustrative Megatron-LM-style configuration for a 70B-scale dense model on 1,024 H100s, showing the 3D-parallel layout. It is not any lab's file; it shows the shape:
 
 ```yaml
+# ILLUSTRATIVE: not any lab's file. A 70B-scale dense model on 1,024 H100s.
 # model
 num_layers: 80
 hidden_size: 8192
