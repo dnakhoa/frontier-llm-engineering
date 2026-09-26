@@ -79,6 +79,7 @@ Check a new chapter with `wc -w` before writing the header line.
 - Use code blocks for any real or real-shaped code: configuration files, model definitions, training scripts, kernel code.
 - Comment the code. The reader is a serious engineer, not a beginner.
 - Prefer real configurations from public papers and blog posts over invented ones.
+- **Label every config block real or illustrative.** A *real config* claims to be a specific model's actual file, and it is generated from a committed snapshot of that file, never typed by hand. An *illustrative config* shows a shape or an idea, starts with an `ILLUSTRATIVE` comment, and uses only values that are fact-sheet rows or are marked as invented.
 - For pseudocode, use Python-like syntax with type hints where helpful.
 
 ## Citations
@@ -88,6 +89,9 @@ Check a new chapter with `wc -w` before writing the header line.
 - Cite real blog posts and technical reports inline with a URL and the lab name.
 - Where a technique is widely used but the original source is unclear, cite 2–3 representative papers and say so.
 - Where a lab has not published, say so explicitly: "The exact [X] has not been published; the discussion below is based on [secondary evidence]."
+- **Facts about a model are linked, not restated.** Layouts, layer counts, data mixes, schedules and precision recipes live in that model's [fact sheet](c-fact-sheets.md). Link to the row; if a calculation needs the number inline, link it there too.
+- **Never block-quote a source from memory.** A quotation must be copied from the cited version and findable in it. The book once block-quoted a sentence that the report does not contain (see the [errata](d-errata.md)).
+- Every claim about a source passes the **citation check** in CONTRIBUTING.md before it merges.
 
 ## Math
 

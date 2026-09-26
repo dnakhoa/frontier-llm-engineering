@@ -327,54 +327,53 @@ The DeepSeek team reports that with auxiliary-loss-free balancing, the expert lo
 
 ## 10.7 The distributed training system
 
-V3 was trained on **2,048 NVIDIA H800 GPUs** connected via NVLink within a node and InfiniBand across nodes [\[1\]](../appendix/b-references.md#1-deepseek-v3). The H800 is the China-export-compliant variant of the H100, with reduced interconnect bandwidth. The 3D-parallelism layout is **4-way pipeline parallelism × 8-way expert parallelism × 64-way data parallelism** = 2,048 GPUs.
+V3 was trained on **2,048 NVIDIA H800 GPUs** connected via NVLink within a node and InfiniBand across nodes [\[1\]](../appendix/b-references.md#1-deepseek-v3). The H800 is the China-export-compliant variant of the H100, with reduced interconnect bandwidth: DeepSeek report 160 GB/s NVLink against 50 GB/s InfiniBand. The layout is **16-way pipeline parallelism, 64-way expert parallelism spanning 8 nodes, and ZeRO-1 data parallelism, with no tensor parallelism** ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#parallelism-layout)).
 
 Chapter 6 covers each parallelism strategy in depth; here are the V3-specific choices.
 
-- **Pipeline parallelism (PP) = 4.** The 60 transformer layers are split into 4 pipeline stages of 15 layers each. 4 stages is the smallest depth that keeps the per-stage memory reasonable while keeping the pipeline bubble small. With a sufficient micro-batch count, the bubble is a small fraction of total time.
-- **Expert parallelism (EP) = 8.** The 256 routed experts are sharded across the 8 GPUs of a single node (so each node holds 32 experts). Tokens are routed to their assigned experts via an **all-to-all** collective, with the all-to-all staying within the node (NVLink bandwidth is ~900 GB/s, compared to ~400 GB/s for InfiniBand).
-- **Data parallelism (DP) = 64.** The 2,048 GPUs form 64 data-parallel groups of 32 GPUs each (since each PP stage has 8 GPUs per node and 4 PP stages per replica, the DP groups are 32 = 4 × 8 GPUs). Gradients are all-reduced across the DP groups. The V3 team uses ZeRO-style optimizer-state sharding inside each DP group to keep the per-GPU memory bounded.
-- **No tensor parallelism.** Within the MoE block, the experts are already sharded, so there is no need for additional TP. The dense attention block is small relative to the MoE block in compute and memory, so it runs without TP. (The dense layer has 7168 × (7168 + 128 × 128 + 128 × 128) = ~117M parameters, well within a single GPU's HBM.)
+- **Pipeline parallelism (PP) = 16.** The 61 transformer layers are split across 16 stages and scheduled with DualPipe (§10.7.1). The report's Table 2 gives DualPipe's bubble as $(PP/2-1)(F\&B+B-3W)$ against 1F1B's $(PP-1)(F+B)$, paid for with twice the parameter memory.
+- **Expert parallelism (EP) = 64, spanning 8 nodes.** Each layer's 256 routed experts are spread evenly over 64 GPUs, 4 per GPU. The all-to-all therefore crosses InfiniBand, which is the expensive choice on a cluster where InfiniBand is about 3.2× slower than NVLink. Two things make it pay. The all-to-all is overlapped with compute. **Node-limited routing** sends each token to at most 4 nodes: it crosses InfiniBand once per target node, to the same-index GPU, and fans out over NVLink from there. In exchange, every expert sees a large batch, and the model needs no TP.
+- **Data parallelism: ZeRO-1**, sharding the optimizer state across data-parallel ranks. The report does not give the DP degree. With 16 stages on 2,048 GPUs there are 128 ranks per stage (our arithmetic).
+- **No tensor parallelism.** DeepSeek say they optimized memory enough to avoid "costly Tensor Parallelism" altogether. They list three techniques: recomputing RMSNorm and the MLA up-projections in the backward pass, keeping the parameters' exponential moving average in CPU memory, and sharing the embedding and output head between the main model and the MTP module.
 
 The reported parallelism config, in the Megatron-DeepSpeed style:
 
 ```yaml
-# DeepSeek-V3 parallelism configuration, paraphrased from the report
+# ILLUSTRATIVE: not a DeepSeek file. A summary of values from the report, in the
+# Megatron-DeepSpeed style. Every value is a row on the V3 fact sheet.
 # Total GPUs: 2048
 model:
-  num_layers: 60
+  num_layers: 61
   hidden_size: 7168
-  n_attention_heads: 128
-  n_kv_heads: 4
+  n_attention_heads: 128    # MLA: no KV-head grouping; K and V come from the latent
   kv_latent_dim: 512
   q_latent_dim: 1536
   n_routed_experts: 256
   n_shared_experts: 1
   expert_intermediate_size: 2048
   top_k: 8
-  first_k_dense: 1          # first layer is dense
-  mtp_heads: 1              # one MTP head, predicting the +2 token
+  first_k_dense: 3          # the first 3 layers are dense; the other 58 are MoE
+  mtp_depth: 1              # one extra predicted token
 
 parallelism:
-  tensor_model_parallel_size: 1   # no TP
-  pipeline_model_parallel_size: 4
-  expert_model_parallel_size: 8   # experts sharded across one node
-  data_parallel_size: 64          # 4 * 8 * 64 = 2048 GPUs
-  zero_stage: 1                   # ZeRO-1, sharding optimizer state across DP
-  micro_batch_size: 1
-  global_batch_size: 8192         # tokens / step = 8192 * seq_len
+  tensor_model_parallel_size: 1   # no TP anywhere
+  pipeline_model_parallel_size: 16
+  expert_model_parallel_size: 64  # spans 8 nodes; each token to at most 4 nodes
+  zero_stage: 1                   # ZeRO-1 across the data-parallel ranks
+  global_batch_size: 15360        # as reported; ramped from 3072 over the first 469B tokens
   sequence_length: 4096
 
 precision:
-  forward: fp8_e4m3               # E4M3 for forward pass matmuls
-  weight_grad: fp8_e4m3           # E4M3 for weight gradients
-  activation_grad: fp8_e5m2       # E5M2 for activation gradients
-  master_weights: bf16            # BF16 master copy of weights
-  optimizer_state: fp32           # FP32 optimizer state
-  fine_grained_block_size: 128    # per-128-element scaling block
+  gemm_format: fp8_e4m3           # E4M3 for Fprop, Dgrad and Wgrad alike
+  activation_scaling: 1x128       # per token per 128 channels
+  weight_scaling: 128x128         # per 128 x 128 block
+  accumulation: fp32_every_128    # promoted to FP32 on CUDA cores every 128 elements
+  master_weights: fp32
+  gradients: fp32
+  adamw_moments: bf16
 ```
 
-The reported parallelism strategy is not unique — Qwen3, Llama-3, and others use similar 3D layouts — but the choice to use **EP=node size, no TP** is V3-specific. It works because the MoE experts are the dominant cost and they shard naturally across the 8 GPUs of a node.
+The combination is V3-specific: **wide cross-node EP, no TP**. Llama-3, a dense model, uses TP=8 inside each node instead. V3 shows the usual rule, keep the all-to-all on NVLink, being broken on purpose. The breach is paid for with a pipeline schedule, a routing constraint and custom kernels designed together.
 
 ### 10.7.1 DualPipe
 
@@ -579,7 +578,7 @@ A reader who is trying to *reproduce* V3 has, as of early 2026, a clear architec
 1. **V3 is a coherent end-to-end demonstration, not a single trick.** FP8 + auxiliary-loss-free MoE + MTP + DualPipe + 14.8T tokens of bilingual data, all composed. Each piece is reproducible in isolation; the composition is what is hard.
 2. **The architecture is the MLA + DeepSeekMoE + MTP stack.** The numbers — 671B / 37B active, 60 layers, 256 routed + 1 shared expert, kv_latent=512, q_latent=1536, hidden=7168 — are the headline. The MLA absorbs the K and V projections to keep KV cache small; the MoE sharding keeps the per-GPU compute bounded; the MTP provides a denser training signal.
 3. **The FP8 is the practical contribution.** Per-block scaling, E4M3 / E5M2 split, custom CUTLASS / Triton kernels. This is the engineering substrate that makes the rest affordable.
-4. **The distributed system is conservative-but-custom.** 4×8×64 3D parallelism, no TP, EP=node size, DualPipe for overlap. The pieces are standard; the composition is V3-specific.
+4. **The distributed system breaks a rule on purpose.** 16-way PP, 64-way EP across 8 nodes, ZeRO-1 DP, no TP. The cross-node all-to-all is paid for by DualPipe overlap, a 4-node routing limit and custom kernels ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#parallelism-layout)). The pieces are standard; the composition, and the co-design that makes it work, are V3's.
 5. **The cost claim is narrow and correct.** $5.5M for one successful pre-training run at rental rates. Not the cost to reproduce; not the cost to own the cluster; not the total engineering cost.
 6. **The post-training is closer to a black art than the pre-training.** SFT, RLHF, R1 distillation — all described at a high level, with the actual recipe unpublished.
 7. **What is *not* published is significant.** The data-mix ratios, the quality classifier, the failure-mode breakdown, the FP8 kernel implementation, the DualPipe runtime — all are partial. A team trying to reproduce V3 has a clear architecture but a fuzzy pipeline.

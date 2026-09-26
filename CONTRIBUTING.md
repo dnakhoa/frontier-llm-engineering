@@ -22,6 +22,24 @@ The three rules that get violated most:
 - **No marketing language.** No "revolutionary," "groundbreaking," "game-changing" unless a primary source used the word and you are quoting it.
 - **Cite real things.** Every `[N]` must resolve to a real entry in [the reference list](book/appendix/b-references.md), which must resolve to a real paper, report, or repository.
 
+## Claims about sources: fact sheets and the citation check
+
+The book's worst failures have not been typos. They have been confident sentences about what a report says that the report does not say: a parallelism layout, a block-quoted sentence, a config file. The book uses three words for the ways a claim can go wrong:
+
+- A **never-true claim** contradicts its primary source (or the book itself) and was wrong on the day it was written. Fixing one earns an entry on the [errata page](book/appendix/d-errata.md).
+- A **stale claim** was accurate when written and has been overtaken by newer work. It goes in the CHANGELOG, and the chapter's refresh moves its currency stamp.
+- An **unsupported claim** is stated as fact with no source behind it. Source it, or label it as an estimate.
+
+Three rules follow from that.
+
+1. **Facts about a specific model live in its [fact sheet](book/appendix/c-fact-sheets.md).** Chapters, exercises, solutions and labs link to the row rather than restating it. If a calculation needs the value inline, give it with a link to the row. A new fact needs a pinpoint citation: the source's version plus section, table or figure, or a file path plus commit for published files.
+2. **A config block is either real or illustrative, and says which.** A block presented as a real model's configuration is generated from the published file (see the style guide). Everything else carries an `ILLUSTRATIVE` label.
+3. **Every change that adds or changes a claim about a primary source passes a citation check before it merges.** It is part of the pull-request checklist:
+
+   - [ ] **Citation check.** For every claim this PR makes about what a source says or contains: I opened the cited version of the source, found the section, table, figure or file line, and confirmed that it says this. Values we derived are marked *our arithmetic* and show their inputs.
+
+   The check is adversarial. The question is "where would this be wrong?", not "does this look plausible?". Checking the claim against another secondary source does not count, and neither does checking it against another chapter of this book. Four chapters once agreed with each other about a layout the source contradicts. An agent can run the check, but it must quote the passage it checked against. CI cannot run it: `tools/check_structure.py` confirms that a citation *exists*, never that it is *right*.
+
 ## Ground rules for labs
 
 A lab earns its place by making a mechanism concrete that prose cannot. It is not a tutorial and it is not a benchmark.
@@ -46,12 +64,13 @@ Hard requirements, all enforced by CI:
 
 ```bash
 python3 tools/check_links.py           # every internal link and anchor resolves
-python3 tools/check_structure.py       # chapters, exercises, solutions, labs in sync
+python3 -m unittest discover -s tools -p "test_*.py"   # the checkers themselves
+python3 tools/check_structure.py       # chapters, exercises, solutions, labs, stamps, errata, fact sheets
 python3 tools/build_notebooks.py --check
 python3 tools/run_labs.py              # or: run_labs.py lab04  for just one
 ```
 
-All four run in CI. Running them locally first saves a round trip.
+All five run in CI. None of them replaces the citation check above. Running them locally first saves a round trip.
 
 ## Adding a chapter
 

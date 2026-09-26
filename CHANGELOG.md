@@ -9,7 +9,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.0] — 2026-08-31
 
 The book as first published, tagged `v1.0`. It is kept unchanged as the record that the
-errata page quotes from: the 2026-09 audit found claims in it
+[errata page](book/appendix/d-errata.md) quotes from: the 2026-09 audit found claims in it
 that contradict their own sources, and v1.0.1 corrects them.
 
 ### Changed

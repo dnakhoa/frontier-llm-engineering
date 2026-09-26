@@ -144,14 +144,14 @@ The actual MLA module is more involved because the K and V projections share a l
 
 ## 1.5 The distributed training system
 
-DeepSeek-V3 was trained on 2,048 H800 GPUs connected via NVLink within a node (8 GPUs) and InfiniBand across nodes. The parallelism strategy:
+DeepSeek-V3 was trained on 2,048 H800 GPUs, 8 per node, connected by NVLink within a node and InfiniBand across nodes. The parallelism strategy ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#parallelism-layout)):
 
-- **Pipeline parallelism (PP)**: the 60 transformer layers are split across 4 pipeline stages (so each stage has 15 layers). DualPipe overlaps forward and backward of one micro-batch with the all-to-all of another.
-- **Expert parallelism (EP)**: the 256 routed experts are split across the 8 GPUs within a node. The all-to-all collective is used to route tokens to their assigned experts.
-- **Data parallelism (DP)**: 64 replicas. One replica spans 32 GPUs — 4 pipeline stages × the 8 GPUs holding its experts — so $2{,}048 / 32 = 64$. Gradients are all-reduced across the 64 replicas, with ZeRO-style optimizer-state sharding inside each. §10.9 works the layout through in full.
-- **No tensor parallelism** within the MoE block, because the experts are already sharded. Dense layers use small TP for the attention heads.
+- **Pipeline parallelism (PP)**: 16-way. The 61 transformer layers are split across 16 pipeline stages, scheduled with **DualPipe**, which overlaps the forward and backward computation of one chunk with the communication of another.
+- **Expert parallelism (EP)**: 64-way, **spanning 8 nodes**. Each layer's 256 routed experts are spread over 64 GPUs, 4 per GPU. The all-to-all that routes tokens to their experts therefore crosses InfiniBand, not just NVLink. Two things keep it affordable: DualPipe hides it behind compute, and each token may be sent to at most 4 nodes.
+- **Data parallelism (DP)**: ZeRO-1, which shards the optimizer state across data-parallel ranks.
+- **No tensor parallelism at all.** DeepSeek optimized memory hard enough that they did not need it.
 
-The total parallelism is 4 (PP) × 8 (EP, which is also the node size) × 64 (DP, in terms of pipeline replicas) = 2,048 GPUs. This is not a unique configuration — the Qwen3 team used a similar 3D-parallel layout, as did Llama-3.
+The surprising choice is the second one. The textbook rule is to keep the MoE all-to-all inside a node on fast NVLink, and V3 deliberately breaks it. Chapter 6 teaches the rule; Chapter 10 (§10.7) shows how V3 makes breaking it pay.
 
 A real Megatron-LM-style configuration file for a 70B-scale model on 1,024 H100s, showing the 3D-parallel layout:
 

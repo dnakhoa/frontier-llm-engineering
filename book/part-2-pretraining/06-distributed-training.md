@@ -400,31 +400,29 @@ When the model is MoE or the context is long, you add the missing parallelism di
 
 **4D parallelism = TP × PP × DP × CP.** Used for dense models trained on long contexts. For example, a 70B model on 32K-token sequences with CP=4 would split each 32K sequence into four 8K chunks, one per GPU. The TP and PP remain as in 3D; the DP degree is reduced to keep the total GPU count constant.
 
-**4D parallelism = TP × PP × DP × EP.** Used for MoE models with sequences that fit on one GPU. The EP dimension shards the experts; the all-to-all is the dominant communication. This is the DeepSeek-V3 configuration (next).
+**4D parallelism = TP × PP × DP × EP.** Used for MoE models with sequences that fit on one GPU. The EP dimension shards the experts; the all-to-all is the dominant communication. DeepSeek-V3 (next) uses three of the four and drops TP entirely.
 
 **5D parallelism = TP × PP × DP × CP × EP.** The full combination for long-context MoE. Used by some frontier labs but not yet standard in the public literature.
 
-### DeepSeek-V3: 4-way PP × 8-way EP × 64-way DP
+### DeepSeek-V3: 16-way PP × 64-way EP × ZeRO-1 DP, no TP
 
-DeepSeek-V3 was trained on 2,048 H800 GPUs with the following parallelism [\[1\]](../appendix/b-references.md#1-deepseek-v3):
+DeepSeek-V3 was trained on 2,048 H800 GPUs with the following parallelism [\[1\]](../appendix/b-references.md#1-deepseek-v3) ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#parallelism-layout)):
 
-- **PP = 4**: the 60 transformer layers are split into 4 pipeline stages (15 layers each).
-- **EP = 8**: the 256 routed experts are sharded across the 8 GPUs of a node (32 experts per GPU). The all-to-all routes tokens to their assigned experts.
-- **DP = 64**: 64 replicas of the (PP=4, EP=8) configuration, for a total of $4 \times 8 \times 64 = 2{,}048$ GPUs.
-- **TP = 1 within the MoE block**: no tensor parallelism, because the experts are already sharded. The dense layers (embedding, output, shared expert) use a small TP (typically TP=1 or TP=2).
-- **DualPipe**: the pipeline schedule overlaps the all-to-all of one micro-batch with the attention and FFN of another, hiding the EP communication cost.
+- **PP = 16**: the 61 transformer layers are split across 16 pipeline stages.
+- **EP = 64, spanning 8 nodes**: each layer's 256 routed experts are spread evenly over 64 GPUs (4 per GPU). The all-to-all that routes tokens to their experts crosses InfiniBand.
+- **DP: ZeRO-1**, sharding the optimizer state across data-parallel ranks. The report does not state the DP degree; with 16 pipeline stages on 2,048 GPUs, each stage has $2{,}048 / 16 = 128$ ranks.
+- **TP = 1 everywhere**: no tensor parallelism at all. DeepSeek report that memory optimizations (recomputing RMSNorm and the MLA up-projections, keeping the EMA of parameters in CPU memory, sharing the embedding and output head with the MTP module) let them avoid it.
+- **DualPipe**: the pipeline schedule overlaps the computation and the communication of paired forward and backward chunks, hiding the cross-node EP all-to-all behind compute.
 
-The 8-way EP is co-located with the 8-GPU node, so the all-to-all runs over NVLink. This is the key to making EP bandwidth-bound on NVLink rather than InfiniBand, and it's why DeepSeek's EP choice is exactly the node size.
+This layout breaks the rule of thumb in §6.11, and the reason is worth understanding. With EP spanning 8 nodes, the all-to-all runs mostly on InfiniBand, which on DeepSeek's H800 cluster is about 3.2× slower than NVLink (50 vs 160 GB/s). DeepSeek made that affordable in two ways. **DualPipe** overlaps the all-to-all with compute. **Node-limited routing** sends each token to at most 4 nodes: a token crosses InfiniBand once per target node, then fans out over NVLink to the GPUs holding its experts. Wide EP buys large per-expert batches and no TP; the price is the co-designed schedule and kernels.
 
-The total memory budget per GPU for DeepSeek-V3 is roughly:
+A rough per-GPU parameter budget for this layout. It is our arithmetic, not a figure from the report:
 
-- Active parameters (37B): 37B × 2 = 74 GB in BF16. With the 8-way expert sharding, each GPU holds 74 / 8 = 9.25 GB of active parameters.
-- All parameters (671B): 671B × 2 = 1.34 TB in BF16. The 671B is sharded across all 2,048 GPUs, so each GPU holds 1.34 TB / 2,048 = 0.65 GB.
-- Optimizer state: only the 37B active parameters are optimized (DeepSeek-V3 does not update the unselected experts' parameters per step). So optimizer state is 37B × 8 = 296 GB sharded across 2,048 GPUs, which is 0.14 GB per GPU. (DeepSeek-V3 actually uses a custom optimizer setup; the numbers are approximate.)
-- Activations: small because each GPU processes only a fraction of the tokens.
-- Total: ~15–20 GB per GPU, well within the H800's 80 GB HBM.
+- **Routed experts** are almost all of the model: 58 MoE layers × 256 experts × 3 matrices × 7,168 × 2,048 ≈ 654B of the 671B parameters. They are split 16 ways by PP and 64 ways by EP, so each GPU holds about $654\text{B} / (16 \times 64) \approx 0.64\text{B}$ expert parameters.
+- **Everything else** (attention, the shared experts, the 3 dense layers, embeddings), about 17B, is split only by PP: roughly $17\text{B} / 16 \approx 1.1\text{B}$ per GPU. Stages are uneven in practice, because the embedding and output head sit on the end stages.
+- That is **~1.7B parameters per GPU, ~3.5 GB in BF16**, before optimizer state (sharded by ZeRO-1; precision in §8.7), gradients and activations.
 
-The point of this exercise: with 5D parallelism, even a 671B-parameter model fits comfortably on each GPU. The trade-off is the all-to-all communication, which is hidden by DualPipe.
+Every optimizer step updates **all** 671B parameters. Each one has its own AdamW state, and an expert that received no tokens in a step still has a (zero-gradient) update. The point of the exercise is that wide EP plus PP makes the *parameters* small per GPU. What DeepSeek had to engineer was the activation memory and the communication, not the weights.
 
 ## 6.11 The cost of communication
 
@@ -444,16 +442,16 @@ The communication volume per step for each strategy:
 | TP | $2 \times \text{layer count} \times \text{seq} \times \text{hidden} \times \text{bytes}$ per step | per layer per step | NVLink required |
 | PP | $2 \times \text{micro-batch count} \times \text{activation size}$ | per stage per step | InfiniBand OK |
 | CP (Ring Attention) | $P \times \text{KV per layer}$ per step | per layer per step | InfiniBand OK at CP=8 |
-| EP (all-to-all) | $2 \times \text{token count} \times \text{per-token activation}$ | per layer per step | NVLink (EP = node size) |
+| EP (all-to-all) | $2 \times \text{token count} \times \text{per-token activation}$ | per layer per step | NVLink preferred; cross-node only with overlap and routing limits |
 
 The arithmetic intensity (bytes of communication per FLOP of compute) determines which strategy is bandwidth-bound and which is compute-bound. The pattern:
 
 - TP has high arithmetic intensity per all-reduce (the matmul that follows is large), so the all-reduce is overlapped with compute. TP requires NVLink.
 - PP has low communication per step (one activation transfer per micro-batch per stage), but high latency sensitivity (the bubble depends on the stage-to-stage latency). PP works on InfiniBand.
 - CP has medium arithmetic intensity. The K/V transfer per layer is small relative to the attention matmul. CP works on InfiniBand for moderate $P$, on NVLink for large $P$.
-- EP has low arithmetic intensity (the all-to-all is bandwidth-bound, and the expert matmul is small relative to the all-to-all). EP requires NVLink, which is why EP = node size in DeepSeek-V3.
+- EP has low arithmetic intensity (the all-to-all is bandwidth-bound, and the expert matmul is small relative to the all-to-all). By default it wants NVLink. DeepSeek-V3 is the instructive exception: its EP spans 8 nodes, and it pays for InfiniBand with DualPipe overlap and by sending each token to at most 4 nodes (§6.10).
 
-The topology-aware placement is the consequence. In a frontier cluster, the 8 GPUs of a node are connected by NVLink. TP and EP are placed within a node. PP and DP are placed across nodes, with consecutive PP stages on nodes that are topologically close (same InfiniBand rail) to minimize the activation transfer latency. CP can be either, depending on the context length.
+The topology-aware placement is the consequence. In a frontier cluster, the 8 GPUs of a node are connected by NVLink. TP is placed within a node, and so is EP by default (V3 shows the cost of doing otherwise, and how to pay it). PP and DP are placed across nodes, with consecutive PP stages on nodes that are topologically close (same InfiniBand rail) to minimize the activation transfer latency. CP can be either, depending on the context length.
 
 ## 6.12 Activation recomputation
 
@@ -518,13 +516,12 @@ The trade-off when picking TP and PP:
 
 The standard frontier practice is to push DP as high as possible, then add PP to keep the per-replica memory in budget, then add TP to keep the per-GPU memory in budget. CP and EP are added when the model architecture or context length requires them.
 
-For DeepSeek-V3 on 2,048 H800s, the same logic:
+For DeepSeek-V3 on 2,048 H800s ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#parallelism-layout)), the logic runs differently, because MoE changes which dimension is expensive:
 
-- EP = 8 (within a node, on NVLink)
-- PP = 4 (across 4 nodes)
-- DP = 64
-- Total: $4 \times 8 \times 64 = 2{,}048$ GPUs
-- No TP within the MoE block, because EP already shards the experts.
+- PP = 16
+- EP = 64, spanning 8 nodes (so the all-to-all crosses InfiniBand, hidden by DualPipe)
+- DP: ZeRO-1 across the remaining ranks
+- No TP anywhere
 
 For Llama-3 on 16K H100s [\[5\]](../appendix/b-references.md#5-llama-3):
 
@@ -535,7 +532,7 @@ For Llama-3 on 16K H100s [\[5\]](../appendix/b-references.md#5-llama-3):
 - FSDP within each PP rank for optimizer state sharding
 - Sequence length up to 8K, so no CP needed
 
-The trade-off in the Llama-3 case is different: PP=16 is much larger than DeepSeek's PP=4, because the 405B model is much larger per layer and the per-GPU memory is the binding constraint. The bubble is $\frac{15}{M + 15}$; with $M = 64$, the bubble is $\frac{15}{79} \approx 19\%$. Llama-3 trades off a larger bubble for a smaller per-replica memory footprint, and the per-FLOP cost of the bubble is compensated by the throughput of running on 16K GPUs.
+The two runs share PP=16, and the difference lies in the other dimensions. Llama-3's 405B model is dense, so every layer's full weight matrices sit on the devices that compute them, and TP=8 inside a node is what makes each layer fit. DeepSeek-V3's weights are mostly routed experts, which EP already splits 64 ways, so it can drop TP entirely. The bubble is $\frac{15}{M + 15}$; with $M = 64$, the bubble is $\frac{15}{79} \approx 19\%$. Llama-3 trades off a larger bubble for a smaller per-replica memory footprint, and the per-FLOP cost of the bubble is compensated by the throughput of running on 16K GPUs.
 
 ## 6.14 The JD, decoded
 
@@ -564,8 +561,8 @@ This is one of the deepest roles in a frontier lab. A senior engineer in this ro
 5. **PP is the cross-node lever.** It introduces a bubble, which scales as $O(P / M)$. 1F1B is the standard schedule; selective activation recomputation is the standard memory reducer.
 6. **CP is necessary for long contexts.** Ring Attention (Liu et al. 2023) splits the sequence across GPUs with a ring-style K/V transfer. For 128K contexts, CP is mandatory.
 7. **EP is the MoE lever.** The all-to-all is the dominant cost, and DeepSeek's DualPipe hides it by overlapping with attention and FFN compute.
-8. **The frontier uses 3D, 4D, and 5D parallelism.** Llama-3: TP=8 × PP=16 × DP=128. DeepSeek-V3: PP=4 × EP=8 × DP=64. The combinations are tuned to the model and the cluster.
-9. **Communication bandwidth drives the topology.** NVLink for TP and EP (within a node), InfiniBand for PP and DP (across nodes). The placement of the parallelism dimensions is not arbitrary.
+8. **The frontier uses 3D, 4D, and 5D parallelism.** Llama-3: TP=8 × PP=16 × DP=128. DeepSeek-V3: PP=16 × EP=64 (across 8 nodes) × ZeRO-1 DP, with no TP ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#parallelism-layout)). The combinations are tuned to the model and the cluster.
+9. **Communication bandwidth drives the topology.** NVLink for TP, InfiniBand for PP and DP. EP prefers NVLink, but DeepSeek-V3 runs it across 8 nodes and pays for that with DualPipe overlap and node-limited routing. The placement of the parallelism dimensions is not arbitrary, and sometimes the right move is to break the default on purpose.
 10. **Activation recomputation is the third lever.** Selective recomputation (Korthikanti 2022) is the standard frontier choice: it recovers 60–70% of the activation memory at a cost of 5–10% extra FLOPs.
 
 The next chapter covers the cluster reality: the actual hardware, the InfiniBand topology, the failure modes, the checkpointing, and the monitoring that turns a working training job into a working training *run*.

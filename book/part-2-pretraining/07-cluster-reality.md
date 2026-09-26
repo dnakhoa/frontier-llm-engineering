@@ -48,7 +48,7 @@ The bandwidth hierarchy inside a frontier cluster is brutal and is the single mo
 
 The intra-node NVLink is roughly 18× faster than the inter-node InfiniBand per GPU. This is the number every parallelism choice has to respect. It is why tensor parallelism lives inside a node (the all-reduce inside a TP layer is bandwidth-bound and you do not want to put it on a 18×-slower link), and why pipeline and data parallelism live across nodes (they are less bandwidth-bound and more latency-tolerant).
 
-The 18× ratio is the reason DeepSeek-V3 places expert parallelism on the intra-node NVLink: the all-to-all collective inside the MoE block is large and bandwidth-hungry, and you want it on the fastest links [\[1\]](../appendix/b-references.md#1-deepseek-v3). It is the reason Qwen3 (and Llama-3) place tensor parallelism inside a node and pipeline parallelism across nodes. It is the reason "NVLink-only" research prototypes (e.g., a 16-GPU workstation with two NVLink-connected DGX nodes) often do not predict real cluster behavior — the 18× cliff is invisible until you try to go across it.
+The ratio is also why the MoE all-to-all *usually* stays inside a node: it is large and bandwidth-hungry, and you want it on the fastest links. DeepSeek-V3 is the instructive exception [\[1\]](../appendix/b-references.md#1-deepseek-v3). Its expert parallelism spans 8 nodes, on a cluster whose NVLink-to-InfiniBand gap is about 3.2×, not 18×, because the H800's NVLink is cut down ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#cluster-and-interconnect)). DeepSeek hid the cross-node all-to-all behind compute and capped each token at 4 nodes. It is the reason Qwen3 (and Llama-3) place tensor parallelism inside a node and pipeline parallelism across nodes. It is the reason "NVLink-only" research prototypes (e.g., a 16-GPU workstation with two NVLink-connected DGX nodes) often do not predict real cluster behavior — the 18× cliff is invisible until you try to go across it.
 
 ### 7.3.1 NVLink and NVSwitch
 
@@ -95,14 +95,14 @@ Once the physical topology is fixed, the placement of the logical parallelism gr
 
 NCCL's topology detection is the heart of the system. When NCCL initializes, it queries the system's PCIe topology (via `libibverbs` and the kernel's NUMA / sysfs tree), enumerates the GPUs and HCAs, and builds a graph of the available communication paths. For a 2-GPU all-reduce, it picks the fastest path (usually NVLink for intra-node, IB for inter-node). For an N-GPU all-reduce, it picks an algorithm (ring, tree, double-binary-tree) and a path through that algorithm that minimizes total time. The detection is automatic, but it is sensitive to the environment: an HCA that is misconfigured (wrong `NCCL_IB_HCA` setting, wrong subnet) is invisible to NCCL and degrades performance silently.
 
-The DeepSeek-V3 parallelism layout [\[1\]](../appendix/b-references.md#1-deepseek-v3) is a clean example of rail-optimized placement:
+The DeepSeek-V3 parallelism layout [\[1\]](../appendix/b-references.md#1-deepseek-v3) shows placement *co-designed* with the network rather than simply fitted to it ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#parallelism-layout)):
 
-- **TP = 1** for MoE layers (experts are already sharded by EP).
-- **EP = 8** (one node) for the MoE experts, with the all-to-all on intra-node NVLink.
-- **PP = 4** across 4 nodes, with each pipeline stage owning 15 of the 60 transformer layers.
-- **DP = 64** (256 nodes × 8 GPUs / (PP × EP) = 2,048 / 32 = 64).
+- **No TP** anywhere.
+- **EP = 64, spanning 8 nodes**, so the MoE all-to-all crosses InfiniBand.
+- **PP = 16**, over the 61 transformer layers.
+- **ZeRO-1 data parallelism** over the remaining ranks.
 
-The 4 pipeline stages are placed on 4 adjacent nodes within the same super-pod, so the point-to-point activations that flow between pipeline stages (4 sends and 4 receives per micro-batch, ~10–50 MB each at typical sequence lengths) stay within the high-bandwidth intra-super-pod fabric. The 64-way data parallel is spread across the rest of the cluster; the data-parallel all-reduce of gradients is large (gigabytes at 671B parameters) and benefits from the 7-rail topology that gives every GPU a direct path to the GPU at the same rail index in any other node.
+The rail-aware part is in how the all-to-all moves. A token bound for experts on another node first crosses InfiniBand to the GPU with the **same in-node index** on the target node, which is the same rail. Then it is forwarded over NVLink to the GPU that holds its expert. Each token may target at most 4 nodes, so InfiniBand traffic is bounded while NVLink absorbs the fan-out. DeepSeek report that this lets the two links run fully overlapped. The layout only works because the kernel, the routing rule and the topology were designed together. The report does not publish its physical rank-to-node placement; anything more specific than the above would be a guess.
 
 A real cluster bring-up script for a frontier run looks like this (highly simplified from public Megatron / DeepSpeed launch scripts):
 
