@@ -573,7 +573,7 @@ The next chapter is the optimization deep dive: the optimizer internals, the LR 
 ---
 
 **Exercises:** [Chapter 7 problem set](../../exercises/ch07.md) — includes the straggler-tax arithmetic and the topology-diagnosis drill.
-**Lab:** [`lab07_collective_bandwidth`](../../labs/lab07_collective_bandwidth.py) — model ring and hierarchical all-reduce, all-to-all under oversubscription, and the straggler tax, and watch the same job lose ~2× throughput to one interconnect decision.
+**Lab:** [`lab07_collective_bandwidth`](../../labs/lab07_collective_bandwidth.py) — model ring and hierarchical all-reduce, all-to-all under oversubscription, and the straggler tax, and watch the same job run 3.5× slower because of one interconnect decision.
 
 ---
 

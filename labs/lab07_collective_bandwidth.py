@@ -230,8 +230,9 @@ print(f"{'EP degree':>10} {'link':<34} {'time':>10}")
 for ep, link in ((8, NVLINK), (8, IB_400), (64, IB_400)):
     t = all_to_all(MOE_BYTES, ep, link)["time_s"]
     print(f"{ep:>10} {link.name:<34} {t:>9.2f}s")
-print("\nEP=8 on NVLink vs EP=8 on InfiniBand is the placement decision that")
-print("Chapter 6 section 6.7 makes, quantified.")
+print("\nEP=8 on NVLink vs EP=8 on InfiniBand is the default placement decision")
+print("Chapter 6 section 6.11 describes, quantified. DeepSeek-V3 ran the EP=64 row")
+print("anyway, and paid for it with overlap and a 4-node routing limit (section 6.10).")
 
 # %% [markdown]
 # ## 5. Latency, bucketing, and small messages
@@ -332,13 +333,22 @@ scenarios = [
     ("1024 ranks, 100G Ethernet, 8s", 8.0, ring_allreduce(PAYLOAD, 1024, ETH_100)["time_s"]),
     ("hierarchical, InfiniBand, 8s", 8.0, hierarchical_allreduce(PAYLOAD, 1024, 8, NVLINK, IB_400)["time_s"]),
 ]
+step_s = {}
 for label, compute, comm in scenarios:
     exposed = max(0.0, comm - compute)
+    step_s[label] = compute + exposed
     print(f"{label:<40} {compute:>8.1f}s {comm:>8.2f}s {exposed:>8.2f}s")
 
+# The headline multiplier is computed from the rows above, never typed in.
+IB_ROW, ETH_ROW = scenarios[0][0], scenarios[2][0]
+eth_vs_ib = step_s[ETH_ROW] / step_s[IB_ROW]
+headline = f"{eth_vs_ib:.1f}x"
+assert float(headline[:-1]) == round(step_s[ETH_ROW] / step_s[IB_ROW], 1)
+
 print("\nThe Ethernet row is the one to sit with: the same model, the same code,")
-print("the same GPU count, and communication no longer hides. That is a ~2x")
-print("throughput difference decided entirely by the interconnect.")
+print("the same GPU count, and communication no longer hides. Step time goes from")
+print(f"{step_s[IB_ROW]:.1f}s to {step_s[ETH_ROW]:.1f}s: a {headline} "
+      "throughput difference decided entirely by the interconnect.")
 
 # %% [markdown]
 # ## 8. Things to try
@@ -382,8 +392,9 @@ print("throughput difference decided entirely by the interconnect.")
 # 2. **Hierarchical all-reduce wins at any node count above 1**, because it
 #    moves only $1/G$ of the payload over the slow link.
 # 3. **All-to-all has no good ordering.** Every rank talks to every rank, so a
-#    fixed fraction crosses the spine no matter what — which is why EP belongs
-#    inside a node.
+#    fixed fraction crosses the spine no matter what — which is why EP defaults
+#    to living inside a node, and why running it across nodes (as DeepSeek-V3
+#    did) takes overlap and routing limits to pay for.
 # 4. **Below ~10 MB you are latency-bound.** Bucketing exists to get you above
 #    that knee.
 # 5. **One rank at 80% speed costs the whole cluster 17%.** Synchronous

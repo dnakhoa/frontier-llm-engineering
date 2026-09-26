@@ -135,3 +135,17 @@ The text as first published is tagged `v1.0` in the repository, so every "the bo
 - **The source says:** **1.5M** SFT instances; a model-based reward model trained from the V3 **SFT checkpoints**, alongside rule-based rewards; RL with **GRPO**; and the distillation runs the other way, **from R1 into V3** (§5.1, §5.2, §5.4.1). Llama-3.1 predates V3 and trained in BF16. Qwen3 uses a global-batch balancing loss, not V3's bias ([fact sheet](fact-sheets/deepseek-v3.md#context-extension-post-training-and-cost)).
 - **Where:** Chapter 10 §10.12 and §10.13.
 - **Fixed in:** v1.0.1
+
+### E-030 — lab06's H800 bandwidths, and the layout it recommended for DeepSeek-V3
+
+- **The book said:** `lab06` modelled the 2,048-H800 cluster with NVLink 200 GB/s and InfiniBand 25 GB/s (8×), searched it with FP32 Adam moments and a 4M-token batch, and concluded that "TP and EP belong inside a node".
+- **The source says:** DeepSeek report NVLink **160 GB/s** and InfiniBand **50 GB/s** (3.2×) for this cluster, BF16 moments, and a batch of 15,360 × 4K ≈ 63M tokens. They ran EP=64 across 8 nodes ([fact sheet](fact-sheets/deepseek-v3.md#cluster-and-interconnect)). The lab now uses those values. It also prints DeepSeek's real layout next to its own pick: with the all-to-all charged as exposed, the real layout looks ~26× slower, but once the all-to-all is overlapped, which is DualPipe's purpose, it matches the pick. The gap measures what the calculator leaves out.
+- **Where:** `lab06_parallelism_memory_model` sections 6, 8, 9, "Things to try" 4 and takeaway 4.
+- **Fixed in:** v1.0.1
+
+### E-031 — lab07's headline multiplier
+
+- **The book said:** `lab07` printed that Ethernet versus InfiniBand is "a ~2x throughput difference", and the labs README and Chapter 7 repeated "~2×".
+- **The source says:** the lab's own rows give 8.0 s per step on InfiniBand and 28.0 s on 100G Ethernet, a **3.5×** difference. The printed figure is now computed from those rows and asserted, as the style guide requires of every printed claim.
+- **Where:** `lab07_collective_bandwidth` section 7; `labs/README.md`; Chapter 7's lab note.
+- **Fixed in:** v1.0.1
