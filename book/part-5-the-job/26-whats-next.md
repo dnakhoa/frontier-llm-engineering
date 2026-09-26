@@ -111,7 +111,7 @@ The durable content, which is most of why this book was written as it was.
 
 **Evaluation is the bottleneck.** §23.1, and getting more true as generating candidates gets cheaper.
 
-**Data is the product.** Chapter 19 §19.8's observation about what labs withhold: the algorithm, not the data. That pattern has held across every technical report cited in this book.
+**Data is the product.** Chapter 19 §19.8's observation about what labs withhold: the data, not the algorithm. That pattern has held across every technical report cited in this book.
 
 ## 26.9 The questions actually open
 

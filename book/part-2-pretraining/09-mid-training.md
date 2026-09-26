@@ -34,7 +34,7 @@ Four motivations, all of which apply in practice, and most of which apply in the
 
 **4. Decoupling from the big run.** Pre-training a 70B+ model is a 60-day, $5M+ commitment. You do not want to stop the bulk run because someone decided they want 128K context. Instead, you *finish* the bulk run at 8K, then run a separate mid-training pass on the side. The big run is a known quantity; the long-context extension is a shorter, lower-stakes run that can be iterated.
 
-These four motivations stack. A typical mid-training pass might: extend the context from 8K to 128K, upweight code and math, decay the learning rate to 10% of peak, and run for 5–10% of the original token budget. The DeepSeek-V3 paper describes exactly this kind of multi-stage approach.
+These four motivations stack. A typical mid-training pass might: extend the context from 8K to 128K, upweight code and math, decay the learning rate to 10% of peak, and run for 5–10% of the original token budget. The DeepSeek-V3 paper describes part of it: a two-stage context extension from 4K to 32K to 128K with YaRN, and a learning-rate decay late in training, though no mid-training data-mix shift ([fact sheet](../appendix/fact-sheets/deepseek-v3.md)).
 
 ## 9.3 Long-context extension
 
@@ -125,7 +125,7 @@ The frontier labs do not all run the same schedule. Three patterns are common.
 
 **Three-stage.** Bulk pre-training, then a long-context extension, then an annealing phase. Used by some labs for the largest runs. Llama-3 405B is the documented example: 8K → 128K in six stages over about 800B tokens, then annealing on the final 40M tokens ([fact sheet](../appendix/fact-sheets/llama-3.md#long-context-and-annealing)). Each stage has its own data mix, learning rate, and context length. The boundaries are operational checkpoints.
 
-**Annealing + SFT in one run.** The Qwen3 and DeepSeek-V3 papers hint at a pattern where the annealing phase is followed directly by SFT, without a separate SFT run. The advantage is operational: the model does not have to be re-loaded, the data mix transition is smooth, the learning rate transitions naturally. The disadvantage is that SFT data is much smaller and the mix shift is large, so the "one run" pattern requires careful handling of the data loader.
+**Annealing + SFT in one run.** A pattern some teams discuss, though neither the Qwen3 nor the DeepSeek-V3 report describes it (both run post-training as separate stages on the base model): the annealing phase is followed directly by SFT, without a separate SFT run. The advantage is operational: the model does not have to be re-loaded, the data mix transition is smooth, the learning rate transitions naturally. The disadvantage is that SFT data is much smaller and the mix shift is large, so the "one run" pattern requires careful handling of the data loader.
 
 The DeepSeek-V3 paper [\[1\]](../appendix/b-references.md#1-deepseek-v3) describes a multi-stage training run with explicit context-length extensions (the 14.8T-token training included separate phases at different context lengths) and a final annealing phase. The exact boundaries are not all published, but the shape is clear.
 
@@ -239,7 +239,7 @@ NTK-aware is widely used because it is a single-line change to the RoPE code and
 
 **YaRN.** The Peng et al. 2023 paper [\[35\]](../appendix/b-references.md#35-yarn). The most sophisticated of the three. YaRN observes that different RoPE frequencies need different treatment: very low frequencies (long-range) need to be interpolated (like PI), very high frequencies (short-range) need to be left alone, and the middle range needs a smooth transition. YaRN also rescales the attention logits by a factor of `1/t` where `t` is the length scaling, to compensate for the change in attention distribution.
 
-In practice, YaRN gives the best quality-vs-length trade-off of the three methods, and is the standard for frontier long-context extension. Llama-3 uses a YaRN-style rescaling for its 128K context. Qwen3 does something different: during its 32K stage it raises the RoPE base from 10,000 to 1,000,000 (ABF), and it applies YaRN, with Dual Chunk Attention, only at inference ([fact sheet](../appendix/fact-sheets/qwen3.md#pre-training-stages)).
+In practice, YaRN gives the best quality-vs-length trade-off of the three methods, and is the standard for frontier long-context extension. Llama-3's report does not name its RoPE extension method; its released 3.1 configs use a frequency-banded rescaling of their own (`rope_type: "llama3"`). Qwen3 does something different: during its 32K stage it raises the RoPE base from 10,000 to 1,000,000 (ABF), and it applies YaRN, with Dual Chunk Attention, only at inference ([fact sheet](../appendix/fact-sheets/qwen3.md#pre-training-stages)).
 
 The RoPE math, briefly. Standard RoPE computes the inverse frequencies as
 
@@ -306,7 +306,8 @@ def rescale_inv_freq_pi(inv_freq, original_max_pos, new_max_pos):
 
 def rescale_inv_freq_ntk(inv_freq, original_max_pos, new_max_pos, dim):
     """NTK-aware: raise the base so high frequencies are preserved."""
-    base_new = inv_freq.max() ** (dim / (dim - 2))  # crude but standard
+    base = inv_freq[1].item() ** (-dim / 2)            # recover base: inv_freq[1] = base^(-2/dim)
+    base_new = base * (new_max_pos / original_max_pos) ** (dim / (dim - 2))  # the §9.10 formula
     # Re-derive inv_freq with the new base
     return 1.0 / (base_new ** (torch.arange(0, dim, 2, dtype=torch.float32) / dim))
 

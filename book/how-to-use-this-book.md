@@ -8,7 +8,7 @@ This book is designed to be worked through alone, without a cohort, an instructo
 
 Each chapter has three layers, and you can stop at any of them.
 
-**Layer 1 — the chapter.** Prose, math, real configurations from real technical reports. Reading a chapter takes 20–45 minutes. If you only read the chapters, you will be able to follow a frontier-lab technical report and hold a conversation with someone who does this work. That is a real outcome and it is enough for many readers.
+**Layer 1 — the chapter.** Prose, math, and configurations that are either generated from the real published files or clearly labelled illustrative. Reading a chapter takes 20–45 minutes. If you only read the chapters, you will be able to follow a frontier-lab technical report and hold a conversation with someone who does this work. That is a real outcome and it is enough for many readers.
 
 **Layer 2 — the exercises.** A problem set per chapter, in [`exercises/`](../exercises/README.md), in three flavours:
 

@@ -76,7 +76,7 @@ Check a new chapter with `wc -w` before writing the header line.
 
 ## Code and configuration
 
-- Use code blocks for any real or real-shaped code: configuration files, model definitions, training scripts, kernel code.
+- Use code blocks for code and configuration: configuration files, model definitions, training scripts, kernel code. Each config block is real or illustrative (below), never "real-shaped".
 - Comment the code. The reader is a serious engineer, not a beginner.
 - Prefer real configurations from public papers and blog posts over invented ones.
 - **Label every config block real or illustrative.** A *real config* claims to be a specific model's actual file, and it is generated from a committed snapshot of that file, never typed by hand. An *illustrative config* shows a shape or an idea, starts with an `ILLUSTRATIVE` comment, and uses only values that are fact-sheet rows or are marked as invented.

@@ -22,7 +22,7 @@ The text as first published is tagged `v1.0` in the repository, so every "the bo
 
 - **The book said:** three JSON blocks presented as the published tokenizer files for DeepSeek-V3, Llama-3 and Qwen3. All three had `"byte_fallback": true`, merge counts of 127,744 or 151,808, invented special tokens (`<|fim_begin|>`, `<|tool_call|>`), and a Qwen3 vocabulary of 152,064. §4.5 said Llama-3 "reserves 128 special tokens".
 - **The source says:** `byte_fallback` is `false` in all three published `tokenizer.json` files. Merges are 127,741 (DeepSeek-V3), 280,147 (Llama-3) and 151,387 (Qwen3). Llama-3 has 256 special tokens. Qwen3 has 151,643 BPE entries plus 26 added (151,669, as its report says), padded to 151,936 embedding rows. The blocks are now generated from the hash-verified files; see the [tokenizer fact sheet](fact-sheets/tokenizers.md).
-- **Where:** Chapter 4 §4.4 (vocabulary table), §4.5 (special tokens), §4.11 (all three blocks); Solution 4.7 part 1.
+- **Where:** Chapter 4 §4.4 (vocabulary table), §4.5 (special tokens), §4.11 (all three blocks); Solution 4.7 part 1; Chapter 4 §4.2, whose merge counts (127,744 / 128,000 / 151,808) matched no published file.
 - **Fixed in:** v1.0.1
 
 ### E-003 — Which tokenizer isolates CJK, and which is "Chinese-optimized"
@@ -66,7 +66,7 @@ The text as first published is tagged `v1.0` in the repository, so every "the bo
 
 - **The book said:** "60 transformer blocks"; "the first transformer layer is dense … The exact number of dense layers is not published, but later presentations suggest 1"; the MoE FFN is in "every layer except the first". It added that the pattern "is now used in Qwen3".
 - **The source says:** 61 layers. "We substitute all FFNs except for the first three layers with MoE layers", so 58 MoE layers; the config's `first_k_dense_replace` is 3 ([fact sheet](fact-sheets/deepseek-v3.md#architecture)). The report gives no rationale for the dense layers. The Qwen3 claim had no source and is removed.
-- **Where:** Chapter 10 §10.4, §10.4.2, §10.4.3 and takeaway 2; Chapter 5 §5.14.1; Exercise 5.3; Solutions 5.3, 10.1 and 10.8.
+- **Where:** Chapter 10 §10.4, §10.4.2, §10.4.3 and takeaway 2; Chapter 5 §5.14.1; Exercise 5.3; Solutions 5.3, 10.1 and 10.8; Solution 6.9 ("60 layers … 120 blocking collectives", now 61 and 122).
 - **Fixed in:** v1.0.1
 - **If you worked this before v1.0.1:** Exercise 5.3's routed-expert total changes from 676B ("essentially 100%") to **654B (~97%)**, leaving ~17B for attention, dense FFNs, shared experts and embeddings. Active parameters reconcile at ≈37.4B. Solution 10.8's "676B > 671B overshoot" no longer exists; the architecture adds up exactly.
 
@@ -82,7 +82,7 @@ The text as first published is tagged `v1.0` in the repository, so every "the bo
 
 - **The book said:** the Chapter 10 DeepSeekMoE code applied the balancing bias to the scores and then took the sigmoid of the *biased* scores as gating weights, unnormalized. The text said V3 "remove[s] the auxiliary loss".
 - **The source says:** "the bias term is only used for routing. The gating value, which will be multiplied with the FFN output, is still derived from the original affinity score." Gating weights are the sigmoid affinities of the selected experts, normalized over them. V3 also keeps a complementary sequence-wise balance loss with weight 0.0001 ([fact sheet](fact-sheets/deepseek-v3.md#architecture)).
-- **Where:** Chapter 10 §10.4.2 (code and text) and §10.6.
+- **Where:** Chapter 10 §10.4.2 (code and text) and §10.6; Solution 5.7, which said the bias balancer works "without touching the loss at all".
 - **Fixed in:** v1.0.1
 
 ### E-011 — A block quote the DeepSeek-V3 report does not contain
@@ -96,7 +96,7 @@ The text as first published is tagged `v1.0` in the repository, so every "the bo
 
 - **The book said:** V3 used E4M3 for the forward pass and weight gradients and **E5M2 for activation gradients**, with a per-matmul table said to come from "the report's appendix". It said the master copy of weights was BF16 and the moments FP32. Chapter 8 said FP8 formats "are unsigned (no sign bit)".
 - **The source says:** "we adopt the E4M3 format on all tensors for higher precision", explicitly instead of the E4M3/E5M2 hybrid; the fine-grained 1×128 / 128×128 scaling is what makes that feasible. Master weights and gradients are FP32 and the AdamW moments BF16 (§3.3.2–3.3.3). E4M3 and E5M2 both have a sign bit; Chapter 10 itself said so ([fact sheet](fact-sheets/deepseek-v3.md#precision)).
-- **Where:** Chapter 1 §1.6; Chapter 5 §5.14.1; Chapter 8 §8.9, §8.15 and takeaway 4; Chapter 10 §10.8.1, §10.8.3, §10.13 and takeaway 3; Exercise 8.8 and its solution; Solution 10.1.
+- **Where:** Chapter 1 §1.6; Chapter 5 §5.14.1; Chapter 8 §8.9, §8.15 and takeaway 4; Chapter 10 §10.8.1, §10.8.3, §10.13 and takeaway 3; Exercise 8.8 and its solution; Solution 10.1; Chapter 1 §1.2 ("FP8 (E4M3 and E5M2 formats)").
 - **Fixed in:** v1.0.1
 - **If you worked this before v1.0.1:** Exercise 8.8 part 1 used to ask "why two different ones?" and the answer explained the hybrid. V3 uses one. The better question, now asked, is why fine-grained scaling lets one format do both jobs.
 
@@ -126,8 +126,9 @@ The text as first published is tagged `v1.0` in the repository, so every "the bo
 
 - **The book said:** the $5.576M covered "the pre-training of V3 … for 2,788K GPU-hours" and "excludes post-training"; the run took "about 2 months … including all failures"; 2,788K GPU-hours implied 50–60% utilization. Chapter 7 priced it at "$1.50/H800-hour". Chapter 10 described Llama-3.1-405B's compute as "~16,000 H100-hours × 30M H100-hours".
 - **The source says:** 2,788K is the **full** training: 2,664K pre-training, 119K context extension and **5K post-training**, at an assumed **$2** per GPU-hour. The "less than two months" refers to pre-training, whose GPU-hours match its stated rate of 180K per trillion tokens exactly (Table 1, §1). Llama 3's report gives 3.8×10²⁵ FLOPs on up to 16K H100s and no GPU-hour cost ([fact sheet](fact-sheets/deepseek-v3.md#context-extension-post-training-and-cost)).
-- **Where:** Chapter 7 §7.15; Chapter 10 §10.1, §10.10 and §10.11; Solutions 10.1 and 10.8.
+- **Where:** Chapter 7 §7.15; Chapter 10 §10.1, §10.10 and §10.11; Solutions 10.1 and 10.8; Chapter 1 §1.2 and §1.7, which called 2,788K "useful" training over "approximately 2 months"; Exercises 1.1–1.2 and their solutions; Solution 3.8.
 - **Fixed in:** v1.0.1
+- **If you worked this before v1.0.1:** Exercise 1.1 part 1 now uses the 2,664K pre-training hours: 54.2 days, not 56.7. Exercise 1.2 changes to 3.16M tokens/s (not 3.02M), 1,543 tokens/s per GPU (not 1,475) and ~35% MFU (not 33%). Solution 3.8's bandwidth becomes 12.6 GB/s.
 
 ### E-017 — DeepSeek-V3's post-training
 
@@ -148,6 +149,34 @@ The text as first published is tagged `v1.0` in the repository, so every "the bo
 - **The book said:** `lab07` printed that Ethernet versus InfiniBand is "a ~2x throughput difference", and the labs README and Chapter 7 repeated "~2×".
 - **The source says:** the lab's own rows give 8.0 s per step on InfiniBand and 28.0 s on 100G Ethernet, a **3.5×** difference. The printed figure is now computed from those rows and asserted, as the style guide requires of every printed claim.
 - **Where:** `lab07_collective_bandwidth` section 7; `labs/README.md`; Chapter 7's lab note.
+- **Fixed in:** v1.0.1
+
+### E-038 — DeepSeek-V2's 93.3% KV-cache saving, measured against the wrong baseline
+
+- **The book said:** "the DeepSeek team reports a 93.3% reduction vs MHA on a 128K context" (Chapter 5), and "DeepSeek-V2 reports a KV cache reduction of roughly 93% against its MHA baseline" (Chapter 22). Chapter 5 also computed V3's saving as $16384/512 = 32×$.
+- **The source says:** DeepSeek-V2 "reduces the KV cache by 93.3%" *compared with DeepSeek 67B*, which uses grouped-query attention, not MHA (DeepSeek-V2 abstract; DeepSeek LLM §2.1). Against full MHA with V3's 128 heads, V3's 576 cached values per token per layer are ~57× smaller (our arithmetic; [fact sheet](fact-sheets/deepseek-v3.md#architecture)).
+- **Where:** Chapter 5 §5.3.1; Chapter 22 §22.3; Solution 1.6.
+- **Fixed in:** v1.0.1
+
+### E-039 — Packing masks, and a buggy NTK formula
+
+- **The book said:** Chapter 3 said packing "is done with attention masks that prevent cross-document attention", as if every lab did. Chapter 9's `rescale_inv_freq_ntk` computed the new base as `inv_freq.max() ** (dim / (dim - 2))`.
+- **The source says:** labs differ. Llama 3 masks across documents and reports it had limited impact in standard pre-training (§3.2); DeepSeek-V3 packs "without cross-sample attention masking" (§4.1). `inv_freq.max()` is 1.0, so the old code set every frequency to 1. The book's own formula in §9.10 is $\text{base}' = \text{base} \cdot (L_\text{new}/L_\text{orig})^{d/(d-2)}$, which `lab09` implements; the code now matches it and was checked against the lab.
+- **Where:** Chapter 3 §3.3.9; Chapter 9 §9.13.
+- **Fixed in:** v1.0.1
+
+### E-040 — Pipeline schedules credited to the wrong papers
+
+- **The book said:** the GPipe schedule was "from Google" and cited the Megatron-LM paper [3]. The interleaved 1F1B schedule was "a refinement from Megatron-V3 (2021)".
+- **The source says:** the GPipe schedule is from Huang et al., "GPipe" (arXiv:1811.06965). The interleaved schedule is from Narayanan et al., "Efficient Large-Scale Language Model Training on GPU Clusters Using Megatron-LM" (arXiv:2104.04473). There is no paper called Megatron-V3. Both are now references [97] and [98].
+- **Where:** Chapter 6 §6.6.
+- **Fixed in:** v1.0.1
+
+### E-041 — Attributions with nothing behind them in Chapters 9, 23 and 26
+
+- **The book said:** "The Qwen3 and DeepSeek-V3 papers hint at a pattern where the annealing phase is followed directly by SFT" (Chapter 9). "Llama 3 and DeepSeek both discuss decontamination in their reports" (Chapter 23). Chapter 26 said what labs withhold is "the algorithm, not the data", citing Chapter 19 §19.8.
+- **The source says:** both the Qwen3 and V3 reports run post-training as separate stages on the base model (V3 §5.1; Qwen3 §4), and the DeepSeek-V3 report does not discuss decontamination; Llama 3 does (§5.1.4). Chapter 19 §19.8 says the opposite of Chapter 26: labs withhold **the data, not the algorithm**. Chapter 26 now agrees with it.
+- **Where:** Chapter 9 §9.6; Chapter 23 §23.5 and its reference note; Chapter 26 §26.8.
 - **Fixed in:** v1.0.1
 
 ### E-020 — Lab descriptions that quoted smoke-test numbers
@@ -277,5 +306,5 @@ The text as first published is tagged `v1.0` in the repository, so every "the bo
 
 - **The book said:** Mixtral uses "Standard MHA … *not* GQA"; its context is "32K (extended from initial 8K training via RoPE scaling)"; and, under "From the Mixtral paper", it uses a "Standard Switch-style auxiliary loss". §5.8 said its "total parameters are $8 \times$ the active parameters".
 - **The source says:** Table 1 gives `n_heads` 32 and `n_kv_heads` 8, so Mixtral uses GQA. The model "was trained with a context size of 32k tokens", and no shorter first stage is described ([Mixtral] Abstract, §2). The paper does not describe its load-balancing loss. With 8 experts and top-2, the expert parameters are 4× the active ones; overall the model is 47B total against 13B active. See the [Mixtral fact sheet](fact-sheets/mixtral.md).
-- **Where:** Chapter 5 §5.8 and §5.14.4.
+- **Where:** Chapter 5 §5.8 and §5.14.4; Chapter 5 §5.9 and §5.11, which gave Mixtral a "Switch-style auxiliary loss" the paper does not describe.
 - **Fixed in:** v1.0.1

@@ -206,7 +206,7 @@ $$
 
 where $W^{DKV} \in \mathbb{R}^{d_c \times d_\text{model}}$, $W^{UK}, W^{UV} \in \mathbb{R}^{(H \cdot d_h) \times d_c}$, and the KV cache stores only $\mathbf{c}_t$ of dimension $d_c$ per token.
 
-For DeepSeek-V3's $d_c = 512$ vs the equivalent GQA at $H \cdot d_h = 128 \cdot 128 = 16384$, the KV cache reduction is roughly $16384/512 = 32\times$ — the DeepSeek team reports a $93.3\%$ reduction vs MHA on a 128K context.
+For DeepSeek-V3, MLA caches $d_c + d_h^R = 512 + 64 = 576$ values per token per layer, against $2 \times 128 \times 128 = 32{,}768$ for full MHA with the same heads: about 57× smaller (our arithmetic; [fact sheet](../appendix/fact-sheets/deepseek-v3.md#architecture)). The often-quoted 93.3% is a different comparison: DeepSeek-V2's KV cache against **DeepSeek 67B**, a GQA model [\[2\]](../appendix/b-references.md#2-deepseek-v2).
 
 MLA's catch: to recover quality, the K vectors need a *positional* component that is not absorbed into the latent. DeepSeek-V2/V3 handle this by adding a small per-head positional vector $\mathbf{k}_t^R = W^{KR} \mathbf{h}_t$ (decoupled from the latent) that is concatenated with the latent-derived K during attention. This keeps RoPE working without blowing up the cache.
 
@@ -514,7 +514,7 @@ Two more concepts from the Switch paper that have become standard:
 
 **Expert capacity.** Each expert processes at most $\lceil k \cdot N / E \cdot C \rceil$ tokens per batch, where $N$ is the number of tokens, $E$ is the number of experts, $k$ is top-$k$, and $C$ is a capacity factor (typically 1.0 to 1.25). If more than $C$ tokens are routed to an expert, the overflow tokens are **dropped** — they pass through with the residual only and no expert contribution. This bounds memory and prevents expert overload, but is a source of quality loss for imbalanced routing.
 
-The general top-$k$ MoE (Mixtral uses $k=2$) is more expressive than Switch and recovers the quality loss of $k=1$. Mixtral [\[37\]](../appendix/b-references.md#37-mixtral-of-experts) was the public landmark: 8 experts, top-2, with the standard Switch-style auxiliary loss, trained on a standard corpus, and the resulting model matched Llama-2-70B quality at the inference cost of a ~13B model.
+The general top-$k$ MoE (Mixtral uses $k=2$) is more expressive than Switch and recovers the quality loss of $k=1$. Mixtral [\[37\]](../appendix/b-references.md#37-mixtral-of-experts) was the public landmark: 8 experts, top-2 (its paper does not describe its load-balancing loss), and the resulting model matched Llama-2-70B quality at the inference cost of a ~13B model.
 
 The aux-loss implementation is the `_aux_loss` method in the `MoEBlock` class above.
 
@@ -630,7 +630,7 @@ The DeepSeek team also observed that the shared expert absorbs a non-trivial fra
 
 Several other MoE designs are deployed at scale; the frontier has not converged on a single design.
 
-**Mixtral 8x7B [\[37\]](../appendix/b-references.md#37-mixtral-of-experts).** 8 experts, top-2, standard Switch-style auxiliary loss. 47B total parameters, 13B active. The reference "obvious MoE" design — the one most teams copy when they want an MoE without the engineering overhead of DeepSeekMoE.
+**Mixtral 8x7B [\[37\]](../appendix/b-references.md#37-mixtral-of-experts).** 8 experts, top-2; the paper does not describe its load-balancing loss ([fact sheet](../appendix/fact-sheets/mixtral.md)). 47B total parameters, 13B active. The reference "obvious MoE" design — the one most teams copy when they want an MoE without the engineering overhead of DeepSeekMoE.
 
 **Grok-1.** 8 experts, top-2, ~314B total parameters. xAI published a model card but limited architectural detail; Grok-2 and Grok-3 use a more refined design that has not been fully published.
 

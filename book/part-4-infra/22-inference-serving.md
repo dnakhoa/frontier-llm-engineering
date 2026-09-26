@@ -52,7 +52,7 @@ $$2 \times 80 \times 64 \times 128 \times 2 = 2.6 \text{ MB per token} \;\Righta
 
 Eight times larger. **This is why GQA exists** [\[20\]](../appendix/b-references.md#20-gqa) — it is a serving decision made at architecture time, and Chapter 5 covers the quality trade-off. Three sequences of MHA cache fill an entire H100.
 
-**DeepSeek's MLA** [\[2\]](../appendix/b-references.md#2-deepseek-v2) goes further: instead of storing K and V per head, store a low-rank latent vector per token and reconstruct at attention time. DeepSeek-V2 reports a KV cache reduction of roughly 93% against its MHA baseline. For V3's configuration the cache is on the order of tens of kilobytes per token rather than hundreds — an order of magnitude below GQA.
+**DeepSeek's MLA** [\[2\]](../appendix/b-references.md#2-deepseek-v2) goes further: instead of storing K and V per head, store a low-rank latent vector per token and reconstruct at attention time. DeepSeek-V2 reports a 93.3% smaller KV cache than DeepSeek 67B, which is itself a GQA model, so the saving is over GQA, not MHA. For V3's configuration the cache is on the order of tens of kilobytes per token rather than hundreds — an order of magnitude below GQA.
 
 The lesson worth carrying: **attention-variant choices are serving-economics choices.** A team that picks MHA for a model it intends to serve at long context has made a decision that will cost far more than the quality difference is worth.
 

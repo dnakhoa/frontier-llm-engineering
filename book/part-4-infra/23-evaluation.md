@@ -109,7 +109,7 @@ def ngram_contamination(benchmark_texts, corpus_index, n=13):
 - **Held-out private sets.** The only real defence: evaluation data that has never been public. Expensive, and it is what every serious lab maintains internally.
 - **Time-based splits.** Evaluate on material created after the training cutoff. Clean by construction, and it expires.
 - **Freshly generated variants.** Same problem structure, new instances — new numbers in a math problem, new names in a reasoning problem. Cheap and effective for templated tasks.
-- **Report the contamination check.** Llama 3 [\[5\]](../appendix/b-references.md#5-llama-3) and DeepSeek [\[1\]](../appendix/b-references.md#1-deepseek-v3) both discuss decontamination in their reports. Doing the check and reporting it is the professional standard, even though it cannot be conclusive.
+- **Report the contamination check.** Llama 3 [\[5\]](../appendix/b-references.md#5-llama-3) reports a per-benchmark contamination analysis (its §5.1.4); the DeepSeek-V3 report [\[1\]](../appendix/b-references.md#1-deepseek-v3) does not discuss decontamination at all. Doing the check and reporting it is the professional standard, even though it cannot be conclusive.
 
 ## 23.6 LLM-as-judge
 
@@ -220,7 +220,7 @@ This closes Part IV. The next part is about the job: reading a frontier JD and k
 
 **References for this chapter**
 
-- [\[1\] DeepSeek-V3 Technical Report](../appendix/b-references.md#1-deepseek-v3) — DeepSeek-AI, December 2024. Decontamination reporting.
+- [\[1\] DeepSeek-V3 Technical Report](../appendix/b-references.md#1-deepseek-v3) — DeepSeek-AI, December 2024. A detailed report that is silent on decontamination.
 - [\[5\] Llama 3 Herd of Models](../appendix/b-references.md#5-llama-3) — Meta AI, July 2024. Contamination analysis at scale.
 - [\[92\] MMLU](../appendix/b-references.md#92-mmlu) — Hendrycks et al., 2020. The default headline benchmark, and its limits.
 - [\[93\] HELM](../appendix/b-references.md#93-helm) — Liang et al., 2022. Evaluation as a standardized methodology.

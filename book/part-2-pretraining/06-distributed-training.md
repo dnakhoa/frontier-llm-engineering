@@ -198,7 +198,7 @@ The naive version has a problem: only one GPU is working at a time. The "warmup"
 
 ### GPipe
 
-The original schedule, from Google [\[3\]](../appendix/b-references.md#3-megatron-lm). All micro-batches flow through the pipeline one at a time. Every micro-batch is in flight in the forward direction before any of them is in the backward direction. This means the activations for *all* $M$ micro-batches must be stored in HBM, which is the dominant memory cost of the GPipe schedule.
+The original schedule, from GPipe (Huang et al., Google, 2019) [\[97\]](../appendix/b-references.md#97-gpipe). All micro-batches flow through the pipeline one at a time. Every micro-batch is in flight in the forward direction before any of them is in the backward direction. This means the activations for *all* $M$ micro-batches must be stored in HBM, which is the dominant memory cost of the GPipe schedule.
 
 The "bubble" is the fraction of time the pipeline is not fully utilized. For $P$ stages and $M$ micro-batches, the bubble is $\frac{P - 1}{M + P - 1}$. With $P = 4$ and $M = 32$, the bubble is $\frac{3}{35} \approx 8.6\%$. With $P = 8$ and $M = 32$, the bubble is $\frac{7}{39} \approx 18\%$. The bubble scales as $O(P / M)$ — to keep it small, you need $M \gg P$.
 
@@ -212,7 +212,7 @@ The disadvantage: the bubble is the same as GPipe's, but the schedule is harder 
 
 ### Interleaved 1F1B
 
-A refinement from Megatron-V3 (2021). Instead of each GPU holding $L/P$ contiguous layers, each GPU holds $L/P$ layers in *non-contiguous* "virtual stages," and the schedule interleaves micro-batches across multiple virtual stages per GPU. The bubble drops to $\frac{P - 1}{M \cdot V + P - 1}$ where $V$ is the number of virtual stages per GPU, but the communication volume increases (each GPU now sends and receives activations $V$ times per step instead of once). This is a useful option when $P$ is small and you want to reduce the bubble further.
+A refinement from Narayanan et al. (2021), the *interleaved* 1F1B schedule [\[98\]](../appendix/b-references.md#98-megatron-lm-at-scale--narayanan-et-al). Instead of each GPU holding $L/P$ contiguous layers, each GPU holds $L/P$ layers in *non-contiguous* "virtual stages," and the schedule interleaves micro-batches across multiple virtual stages per GPU. The bubble drops to $\frac{P - 1}{M \cdot V + P - 1}$ where $V$ is the number of virtual stages per GPU, but the communication volume increases (each GPU now sends and receives activations $V$ times per step instead of once). This is a useful option when $P$ is small and you want to reduce the bubble further.
 
 ### The activation memory trade-off
 
