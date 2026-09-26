@@ -2,6 +2,8 @@
 
 > Reading time: ~50 minutes. This is the deepest chapter on transformer architecture you'll find outside an industry architecture team. By the end, you should be able to read any frontier-lab technical report and understand every architectural choice in it — and to explain why MLA, DeepSeekMoE, and RoPE exist at all.
 
+*Current as of early 2025.*
+
 ## 5.1 The mental model
 
 The transformer is ten years old. It has been refined, compressed, and stretched in every direction, but the structure is unchanged: stacked layers of attention and position-wise MLPs, with residuals and norms in between. The frontier work of 2024–2025 is not about new high-level ideas; it is about which of the dozen well-known variants to use, at what scale, with what trade-off. The architecture choices that distinguish a Llama-3 from a DeepSeek-V3 from a Qwen3-MoE are not inventions — they are selections and tunings of pieces that have all been on the shelf since 2020–2023.

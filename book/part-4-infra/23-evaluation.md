@@ -2,6 +2,8 @@
 
 > Reading time: ~40 minutes. By the end of this chapter you should understand why evaluation is the real bottleneck in modern model development, how much of a reported benchmark score is prompt-formatting artifact, how contamination is detected and why it is nearly impossible to rule out, what LLM-as-judge measures and what it does not, and how to build an internal evaluation suite you can actually make decisions with.
 
+*Current as of early 2025.*
+
 ## 23.1 The actual bottleneck
 
 Every chapter in this book has described something you can do to a model. This chapter is about knowing whether it helped, and it is harder than any of them.

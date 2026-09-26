@@ -2,6 +2,8 @@
 
 > Reading time: ~40 minutes. By the end of this chapter you should be able to reconstruct the full R1 pipeline from memory, explain what each of its four stages was for, name the two things the team tried and abandoned, and identify the half-dozen details the report deliberately does not give you. This is the chapter where Chapters 11 through 18 assemble into one artifact.
 
+*Current as of early 2025.*
+
 ## 19.1 Why this is the case study
 
 Chapter 10 used DeepSeek-V3 as the pre-training case study for one reason: the team published more honest detail than anyone else. R1 [\[10\]](../appendix/b-references.md#10-deepseek-r1) is the post-training equivalent, and it is arguably the more valuable document.

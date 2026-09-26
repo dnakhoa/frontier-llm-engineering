@@ -2,6 +2,8 @@
 
 > Reading time: ~45 minutes. By the end of this chapter you should be able to read the optimization section of any frontier-lab technical report, know what each number means, and know which choice is a default and which is a deliberate, lab-specific decision.
 
+*Current as of early 2025.*
+
 ## 8.1 The layer nobody talks about at the right altitude
 
 The optimizer is the second-most-imitated part of frontier training (the first is the data mix). Almost every public reproduction of a frontier model starts with "use AdamW, cosine schedule, BF16, global-norm clip at 1.0." And the published *numbers* — peak LR, warmup steps, weight decay — are often close across labs. The differences show up in three places: how aggressively they push precision (BF16 → FP8 → FP4), how they handle the rare-but-catastrophic loss spike, and how they scale the batch. The art is in those.

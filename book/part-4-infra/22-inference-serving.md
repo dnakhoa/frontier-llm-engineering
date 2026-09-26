@@ -2,6 +2,8 @@
 
 > Reading time: ~40 minutes. By the end of this chapter you should be able to compute a KV cache's size and see immediately why GQA and MLA exist, explain why prefill and decode are opposite workloads, describe what continuous batching and paged attention each fix, and reason about the latency-throughput trade-off that every serving decision sits on. If you are here from Part III: this is the chapter that explains where 60–80% of your RLHF wall-clock went.
 
+*Current as of early 2025.*
+
 ## 22.1 A different problem entirely
 
 Training and serving look like the same computation and they are not.

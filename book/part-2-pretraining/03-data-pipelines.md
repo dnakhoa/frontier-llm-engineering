@@ -2,6 +2,8 @@
 
 > Reading time: ~35 minutes. This is the deepest chapter on data pipelines you'll find outside an industry lab. By the end, you should be able to read any frontier lab's data card and understand every line.
 
+*Current as of early 2025.*
+
 ## 3.1 Why data is the model
 
 A pre-trained language model is, in a precise sense, a compressed representation of its training data. Given enough parameters and enough training, you can recover surprising amounts of the training data verbatim from the model (Carlini et al., 2021 [\[4\]](../appendix/b-references.md#4-extracting-training-data)). Given less, the model still encodes statistical regularities of the data — facts, reasoning patterns, code idioms, language biases.

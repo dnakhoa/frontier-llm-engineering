@@ -38,7 +38,7 @@ explicit honesty about what a lab does *not* show.
 
 Every chapter has:
 
-1. **A header block** with reading time and a one-line summary of what the reader will know after.
+1. **A header block** with reading time and a one-line summary of what the reader will know after, followed by the **currency stamp** on its own line: `*Current as of <Month YYYY>.*`, or `early`/`mid`/`late YYYY` when the month is not meaningful. The stamp gives the month the chapter's claims were last checked against the field. Only a refresh moves it; typo fixes, link fixes and corrections of never-true claims do not. `tools/check_structure.py` enforces the format.
 2. **A motivating example or case study** in the first section. Anchor on a real lab / real paper.
 3. **The technical content** in numbered sections, each with a clear topic.
 4. **A "JD, decoded" or "what this means in practice" section** near the end, mapping the chapter content to actual frontier-lab job roles.

@@ -2,6 +2,8 @@
 
 > Reading time: ~40 minutes. By the end of this chapter you should understand the training stages that sit between full pre-training and SFT — long-context extension, domain annealing, and the multi-stage schedules frontier labs actually use. You should be able to read the "annealing" section of a frontier-lab technical report and not be mystified.
 
+*Current as of early 2025.*
+
 ## 9.1 What is mid-training
 
 A frontier pre-training run does not go from "cold start" to "ready for post-training" in one monotonic shot. Between the bulk of the pre-training and the start of SFT, there is a distinct, often undocumented phase that the field has settled on calling **mid-training**, and which papers variously refer to as *continued pre-training*, *annealing*, *the second stage*, or simply *the long-context phase*. Different labs draw the boundaries differently, but the *work* being done in that phase is recognizable across all of them.

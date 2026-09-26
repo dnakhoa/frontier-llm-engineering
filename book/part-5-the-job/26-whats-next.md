@@ -2,6 +2,8 @@
 
 > Reading time: ~25 minutes. This is the chapter most likely to be wrong. By the end you should have a map of the directions the field is actively pushing on, an explicit sense of which parts of this book are durable and which are dated, and a set of open questions worth watching.
 
+*Current as of early 2025.*
+
 ## 26.1 How to read this chapter
 
 Everything before this point describes work that has been done and published. This chapter describes work in progress, which means it is speculation with citations.

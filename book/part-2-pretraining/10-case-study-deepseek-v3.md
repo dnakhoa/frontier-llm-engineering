@@ -2,6 +2,8 @@
 
 > Reading time: ~50 minutes. This is the first case study of the book — a full walkthrough of the pre-training (and the publicly visible post-training) of DeepSeek-V3 [\[1\]](../appendix/b-references.md#1-deepseek-v3), from the team's stated goal to the training dynamics to the $5.5M cost claim and the things the report does not actually tell us. Chapter 1 used DeepSeek-V3 as a one-paragraph spine; this is the deep dive.
 
+*Current as of early 2025.*
+
 ## 10.1 The team and the goal
 
 DeepSeek-V3 was released by **DeepSeek-AI** on **December 26, 2024**, with a 60-page technical report and a permissive open-weight license [\[1\]](../appendix/b-references.md#1-deepseek-v3). DeepSeek-AI is a Chinese AI research company founded in 2023, spun out of High-Flyer (the quantitative hedge fund) and based in Hangzhou. The report credits roughly 200 named authors; the core pre-training team was much smaller. The model is fully open-weight; the training data is not released, and most data-pipeline internals remain unpublished.

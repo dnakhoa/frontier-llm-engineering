@@ -20,7 +20,10 @@ jobs:
       - name: Every internal link and anchor resolves
         run: python3 tools/check_links.py
 
-      - name: Every SUMMARY chapter has a matching exercise set
+      - name: The checkers catch what they claim to catch
+        run: python3 -m unittest discover -s tools -p "test_*.py"
+
+      - name: Every chapter has exercises, a currency stamp; errata and fact sheets are well-formed
         run: python3 tools/check_structure.py
 
       - name: Committed notebooks match their source labs

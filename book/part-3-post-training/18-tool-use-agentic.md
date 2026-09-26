@@ -2,6 +2,8 @@
 
 > Reading time: ~35 minutes. By the end of this chapter you should understand how tool calling is actually represented and trained, why multi-turn agentic behaviour is a fundamentally harder training problem than single-turn tool use, what makes environments the bottleneck for agentic RL, and how the credit-assignment problem from Chapter 16 returns in a much worse form over long horizons. You should be able to look at an agent benchmark and know what it does and does not measure.
 
+*Current as of early 2025.*
+
 ## 18.1 The point at which text stops being text
 
 Everything in Part III so far has optimized a model that produces text. A response is scored, the score updates the policy, and the worst outcome of a bad response is a bad response.

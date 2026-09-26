@@ -2,6 +2,8 @@
 
 > Reading time: ~45 minutes. This is a densely technical chapter; skim it on a first pass if you need to. By the end you should understand the RLHF objective and why it has a KL term, how PPO's clipped surrogate works and what its four-model memory footprint costs, why RLOO deletes the value network and gets away with it, and why a production RLHF system is mostly an inference-serving problem wearing a training-job costume.
 
+*Current as of early 2025.*
+
 ## 13.1 The step from a scorer to a policy
 
 Chapter 12 gave you $r(x, y)$: a function that scores a response. Chapter 11 §11.10 showed the cheapest way to use it — sample $k$ responses, keep the best, retrain. That is rejection sampling, and it works.

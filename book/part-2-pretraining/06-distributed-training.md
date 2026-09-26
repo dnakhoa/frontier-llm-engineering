@@ -2,6 +2,8 @@
 
 > Reading time: ~50 minutes. By the end of this chapter you should be able to read any frontier-lab training-config dump and recognize every parallelism knob, understand why it is set the way it is, and reason about the memory and bandwidth trade-offs that drove it.
 
+*Current as of early 2025.*
+
 ## 6.1 The mental model
 
 The single most important fact about frontier training is that **the model does not fit on one GPU, and barely fits on eight.** Everything else in this chapter — tensor parallelism, pipeline parallelism, FSDP, expert parallelism, context parallelism, all the collective-communication primitives — is a response to that fact. So we start with the arithmetic.

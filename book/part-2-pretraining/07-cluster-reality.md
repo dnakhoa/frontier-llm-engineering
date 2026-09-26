@@ -2,6 +2,8 @@
 
 > Reading time: ~60 minutes. By the end of this chapter you should understand the physical substrate of a frontier training run, the software that drives it, and the failure modes that define daily life for the engineers who keep it running.
 
+*Current as of early 2025.*
+
 ## 7.1 The world between the silicon and the script
 
 Chapter 6 covered the *logical* structure of a distributed training run: tensor parallelism, pipeline parallelism, data parallelism, expert parallelism, and the collectives that tie them together. That chapter assumed the network and the nodes were there. This chapter is about what is actually there.

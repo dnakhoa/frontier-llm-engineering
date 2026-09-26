@@ -26,6 +26,8 @@ The labs are where the abstractions stop being abstractions.
 
 Every chapter opens with a header block giving an estimated reading time and a one-sentence statement of what you should be able to do afterwards. Take that sentence seriously — it is the exit criterion, and the exercises test exactly it.
 
+Under the header is a **currency stamp**: *Current as of early 2025*, or a month and year. It gives the date the chapter's claims were last checked against the field, not the date it was last edited, so a typo fix or a correction leaves it alone. This field moves by the quarter, so chapters age at different rates. A chapter stamped "early 2025" may be accurate about everything it says and still be missing a year of work.
+
 The chapter body is numbered by section (§6.4, §11.2) so the exercises and solutions can point at specific arguments. When a solution says "see §8.7," it means it.
 
 Every chapter ends with:

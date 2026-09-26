@@ -2,6 +2,8 @@
 
 > Reading time: ~45 minutes. This is a densely technical chapter; skim it on a first pass if you need to. By the end you should be able to compute arithmetic intensity and predict whether an operation is compute-bound or memory-bound, explain what FlashAttention actually does and why it is not an approximation, write a fused kernel in Triton, and benchmark honestly — including reporting the cases where your kernel loses.
 
+*Current as of early 2025.*
+
 ## 20.1 Why anyone writes kernels
 
 A frontier pre-training run costs millions of dollars and occupies thousands of GPUs for weeks. A 20% speedup on the training step is 20% of that bill and 20% of the calendar. One engineer spending a month to get it is an obviously good trade, and that arithmetic is why kernel engineers exist as a distinct role at every frontier lab.

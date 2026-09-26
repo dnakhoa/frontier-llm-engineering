@@ -2,6 +2,8 @@
 
 > Reading time: ~25 minutes. By the end of this chapter you should be able to read a frontier-lab technical report and recognize every component in it.
 
+*Current as of early 2025.*
+
 ## 1.1 The mental model
 
 Most of the public discussion of "training an LLM" is a cartoon. You have some data. You have a model. You do forward pass, backward pass, update weights, repeat. The cartoon is not wrong, but it is missing almost everything that actually matters at frontier scale.

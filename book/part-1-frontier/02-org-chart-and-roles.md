@@ -2,6 +2,8 @@
 
 > Reading time: ~30 minutes. By the end of this chapter you should be able to read a frontier-lab JD and tell what the person actually does all day.
 
+*Current as of early 2025.*
+
 ## 2.1 Why the org chart is the org chart
 
 Frontier LLM labs are organized around the training pipeline. The roles exist because the pipeline has components, and the components require different skills. The split is not arbitrary: data engineers build data pipelines, kernel engineers write GPU kernels, post-training researchers design RL algorithms. But the *boundaries* between roles are blurry in practice, and that blur is part of the "weird" feeling of frontier JDs.
