@@ -29,6 +29,7 @@ Checked against the files: 2026-09-26.
 | Fact | Value | Source |
 |---|---|---|
 | Composition | "100K tokens from the tiktoken tokenizer with 28K additional tokens to better support non-English languages" | [Llama3] §3.2 |
+| Compression against Llama 2 | 3.94 characters per token on a sample of English data, against 3.17 for the Llama 2 tokenizer | [Llama3] §3.2 |
 | BPE vocabulary entries | 128,000 | `tokenizer.json` model.vocab @8cde5ca |
 | Merge rules | 280,147 | `tokenizer.json` model.merges @8cde5ca |
 | Added tokens | 256, all special, IDs 128000–128255; named ones include `<\|begin_of_text\|>`, `<\|end_of_text\|>`, `<\|start_header_id\|>`, `<\|end_header_id\|>`, `<\|eot_id\|>` | `tokenizer.json` added_tokens @8cde5ca |
@@ -36,6 +37,7 @@ Checked against the files: 2026-09-26.
 | `byte_fallback` | false | `tokenizer.json` model @8cde5ca |
 | Normalizer | None | `tokenizer.json` @8cde5ca |
 | Pre-tokenizer | tiktoken-style regex with `\p{N}{1,3}`, no CJK class; then ByteLevel | `tokenizer.json` pre_tokenizer @8cde5ca |
+| Whitespace-run tokens | 86 runs of spaces (up to 128 long) and 20 runs of tabs, all with IDs below 100,000. None is among the entries after ID 100,000, so none comes from the 28K tokens Meta added (our reading of the IDs) | `tokenizer.json` model.vocab @8cde5ca |
 | Tied embeddings | No (`tie_word_embeddings: false`) | `config.json` @8cde5ca |
 
 ## Qwen3

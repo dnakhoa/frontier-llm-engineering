@@ -164,13 +164,14 @@ The numerical values vary by lab:
 
 | Model | Peak LR | Floor (fraction) | Warmup (fraction) | Total tokens |
 |---|---|---|---|---|
-| Llama 3 8B | $3 \times 10^{-4}$ | 10% | 0.3% | 15.6T |
-| Llama 3 70B | $1.5 \times 10^{-4}$ | 10% | 0.3% | 15.6T |
+| Llama 3 8B | $3 \times 10^{-4}$ | not published | not published | ~15T |
+| Llama 3 70B | $1.5 \times 10^{-4}$ | not published | not published | ~15T |
+| Llama 3 405B | $8 \times 10^{-5}$ | 1% | 8,000 steps (0.7%) | 15.6T |
 | Qwen3 32B (dense) | $2 \times 10^{-4}$ | 10% | 0.5% | ~36T (multi-stage) |
 | DeepSeek-V3 (MoE) | $2.2 \times 10^{-4}$ | 10% | 0.2% | 14.8T |
 | PaLM 540B | $1 \times 10^{-2}$ (Adafactor scale) | 10% | 0.1% | 0.78T |
 
-The interesting pattern: larger models use *smaller* peak LRs. The intuition is that larger models have smaller optimal per-parameter step sizes. Llama 3 8B uses $3 \times 10^{-4}$; Llama 3 70B uses $1.5 \times 10^{-4}$. Qwen3 235B (MoE) uses $7 \times 10^{-5}$. The µTransfer framework formalizes this in §8.12.
+The interesting pattern: larger models use *smaller* peak LRs. The intuition is that larger models have smaller optimal per-parameter step sizes. Llama 3 8B uses $3 \times 10^{-4}$; Llama 3 70B uses $1.5 \times 10^{-4}$; Llama 3 405B uses $8 \times 10^{-5}$ ([fact sheet](../appendix/fact-sheets/llama-3.md#architecture)). The report gives the floor and warmup only for the 405B. Qwen3 235B (MoE) uses $7 \times 10^{-5}$. The µTransfer framework formalizes this in §8.12.
 
 A small but important detail: the "fraction of total" warmup numbers above assume the run goes for the full token budget. Many real runs adjust the warmup to be ~2000–5000 steps absolute, because the first few thousand steps are particularly delicate and a longer warmup is cheap insurance.
 
@@ -211,7 +212,7 @@ Why global-norm and not per-parameter? Because the gradients of different parame
 
 Why clip at all? Because gradient spikes — sudden, transient increases in gradient magnitude — can destabilize training. They are caused by rare training examples (very long documents, adversarial web text, MoE routing collapse), by numerical issues, or by hardware glitches. Clipping bounds the worst-case update.
 
-The threshold is the second-most-tuned optimization hyperparameter after the peak LR. Llama 3 uses 1.0. PaLM uses 1.0. Qwen3 uses 1.0. DeepSeek-V3 uses 1.0. The 1.0 default is so universal that any deviation is worth noting.
+The threshold is the second-most-tuned optimization hyperparameter after the peak LR. Llama 3 does not report its threshold ([fact sheet](../appendix/fact-sheets/llama-3.md#training-recipe)). PaLM uses 1.0. Qwen3 uses 1.0. DeepSeek-V3 uses 1.0. The 1.0 default is so universal that any deviation is worth noting.
 
 The clipping happens **before** the optimizer step. Some implementations also log the unclipped norm for monitoring — a sudden increase in the unclipped norm (with no corresponding loss spike) is an early warning sign of a problem.
 
@@ -371,7 +372,7 @@ $$ N^*(C) \approx \left(\frac{C}{a}\right)^{0.5}, \quad D^*(C) \approx \left(\fr
 
 with constants $a, b$ such that $D^* / N^* \approx 20$ across several orders of magnitude.
 
-The practical implication: for a 70B model, you should train on at least 1.4T tokens. For a 7B model, at least 140B tokens. The Llama 1 paper trained the 65B model on 1.4T tokens, which was exactly on the Chinchilla line. The Llama 2 paper trained the 70B on 2T tokens, slightly over-Chinchilla. The Llama 3 paper trained the 70B on 15.6T tokens, **massively** over-Chinchilla — and the result was a much better model. The reason is the topic of the next section.
+The practical implication: for a 70B model, you should train on at least 1.4T tokens. For a 7B model, at least 140B tokens. The Llama 1 paper trained the 65B model on 1.4T tokens, which was exactly on the Chinchilla line. The Llama 2 paper trained the 70B on 2T tokens, slightly over-Chinchilla. The Llama 3 paper trained on a corpus of about 15T tokens ([fact sheet](../appendix/fact-sheets/llama-3.md#pre-training-data)), **massively** over-Chinchilla for the 70B — and the result was a much better model. The reason is the topic of the next section.
 
 ## 8.11 Beyond Chinchilla: data may matter more than parameters
 
@@ -381,7 +382,7 @@ The Chinchilla rule is for *pre-training loss*, not for *downstream task perform
 - For a fixed downstream benchmark, the model can be **smaller** and trained on **more data**, because downstream tasks benefit more from data than from parameters.
 - Frontier labs care about *inference cost*, not just *training cost*, and a model that is 3× cheaper to run can serve 3× more users.
 
-This is why Llama 3 8B is trained on 15.6T tokens (a 1:2000 parameter-to-token ratio, way over Chinchilla) and is a much better model than a Chinchilla-optimal 8B trained on 160B tokens would be. Same for Qwen3, DeepSeek-V3, and the rest of the post-2023 frontier. The "20 tokens per parameter" rule is **wrong** for modern frontier runs, and the labs know it.
+This is why Llama 3 8B is trained on about 15T tokens (roughly 1,900 tokens per parameter, way over Chinchilla) and is a much better model than a Chinchilla-optimal 8B trained on 160B tokens would be. Same for Qwen3, DeepSeek-V3, and the rest of the post-2023 frontier. The "20 tokens per parameter" rule is **wrong** for modern frontier runs, and the labs know it.
 
 The rule of thumb that has replaced Chinchilla in practice is **"train until downstream benchmarks plateau"**, which for an 8B model turns out to be ~10–20T tokens, and for a 70B model ~15–30T tokens. The exact number is lab-specific and not always published.
 
@@ -442,7 +443,7 @@ if grad_norm > 5 * grad_norm_ema:
 
 1. **Skip the batch** and continue at the current LR (cheapest, but doesn't prevent the next spike).
 2. **Skip + reduce LR** by a factor (e.g., 0.5–0.8) for the next window of steps.
-3. **Roll back to a pre-spike checkpoint** and reduce the LR. Llama 3 uses this for catastrophic spikes. Exact thresholds are unpublished.
+3. **Roll back to a pre-spike checkpoint** and reduce the LR. Exact thresholds are rarely published. Llama 3 reports not needing any of these: its 405B run saw "few loss spikes" and needed no interventions to correct divergence ([fact sheet](../appendix/fact-sheets/llama-3.md#training-recipe)).
 
 DeepSeek-V3 is the counterpoint: it reports no irrecoverable spikes and no rollbacks in its whole run, and publishes no spike policy ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#optimizer-and-schedule)).
 
@@ -458,7 +459,7 @@ The global batch size is one of the most consequential hyperparameters, and the 
 
 The PaLM paper [\[45\]](../appendix/b-references.md#45-palm-chowdhery-et-al-2022) uses the square-root scaling rule: $\text{LR} = \text{LR}_{\text{base}} \cdot \sqrt{B / B_{\text{base}}}$. The original GPT-3 paper used linear scaling. Modern frontier runs use a mix: linear scaling for the warmup phase, then a fixed LR for the main training.
 
-The DeepSeek-V3 paper uses a constant LR for the first 10T of its 14.8T tokens, with the batch size ramped from 3,072 to 15,360 sequences (~13M to ~63M tokens at 4K) over the first 469B tokens, about 3% of training, then held constant. The Llama 3 paper uses a constant global batch size of ~16M tokens (4M sequences of 4096 tokens) for the 8B and a similar size for the 70B. The Qwen3 paper uses a similar constant batch.
+The DeepSeek-V3 paper uses a constant LR for the first 10T of its 14.8T tokens, with the batch size ramped from 3,072 to 15,360 sequences (~13M to ~63M tokens at 4K) over the first 469B tokens, about 3% of training, then held constant. The Llama 3 paper ramps the 405B batch: 4M tokens at sequence length 4,096, then 8M tokens at 8,192 after 252M tokens, then 16M after 2.87T tokens ([fact sheet](../appendix/fact-sheets/llama-3.md#training-recipe)). It does not give the 8B and 70B batch sizes. The Qwen3 paper gives no batch size.
 
 The critical batch size is a function of the model, the data, and the loss. Frontier labs often use **batch size ramping** — starting at a smaller batch (where the gradient is noisier and the LR scaling is more forgiving) and ramping up to the critical batch over the first few percent of training. This is what DeepSeek-V3 does.
 
@@ -479,13 +480,15 @@ Every value is a row on the [fact sheet](../appendix/fact-sheets/deepseek-v3.md#
 - **Gradient clipping:** global norm, threshold 1.0.
 - **Total tokens:** 14.8T. **Stability:** no irrecoverable spikes and no rollbacks reported; no spike policy published.
 
-### Llama 3 (70B)
+### Llama 3 (405B)
 
-- **Optimizer:** AdamW, $\beta_1 = 0.9$, $\beta_2 = 0.95$, $\epsilon = 1 \times 10^{-8}$, weight decay = 0.1.
-- **Schedule:** warmup over 8,000 steps (0.3% of total), then cosine decay to 10% of peak.
-- **Peak LR:** $1.5 \times 10^{-4}$. **Batch size:** ~16M tokens, held constant.
-- **Precision:** BF16 throughout. **Gradient clipping:** 1.0. **Total tokens:** 15.6T.
-- **Critical batch size:** ~4M tokens. Llama 3 trained at ~4× CBS, deliberately over-CBS for stability.
+The report publishes the recipe for the 405B and says the 8B and 70B use "similar recipes" ([fact sheet](../appendix/fact-sheets/llama-3.md#training-recipe)).
+
+- **Optimizer:** AdamW. $\beta_1$, $\beta_2$, $\epsilon$ and weight decay are not reported for this run.
+- **Schedule:** linear warmup over 8,000 steps (0.7% of 1.2M), then cosine decay to $8 \times 10^{-7}$ (1% of peak) over 1,200,000 steps. The last 40M tokens anneal linearly to zero (§9.4).
+- **Peak LR:** $8 \times 10^{-5}$. **Batch size:** ramped 4M → 8M → 16M tokens, at 252M and 2.87T tokens.
+- **Precision:** BF16, with FP32 gradient accumulation. **Gradient clipping:** not reported. **Total tokens:** 15.6T.
+- **Stability:** "few loss spikes", and no interventions to correct divergence.
 
 ### Qwen3 (235B MoE)
 
@@ -504,17 +507,17 @@ Every value is a row on the [fact sheet](../appendix/fact-sheets/deepseek-v3.md#
 
 Across the four:
 
-| | DeepSeek-V3 | Llama 3 70B | Qwen3 235B | PaLM 540B |
+| | DeepSeek-V3 | Llama 3 405B | Qwen3 235B | PaLM 540B |
 |---|---|---|---|---|
 | Optimizer | AdamW | AdamW | AdamW | Adafactor |
-| Peak LR | 2.2e-4 | 1.5e-4 | 7e-5 | 1e-2 (Adafactor) |
-| Warmup | 0.1% | 0.3% | 0.5% | 0.1% |
-| Schedule | cosine to 10% | cosine to 10% | cosine to 10% | cosine to 10% |
-| Weight decay | 0.1 | 0.1 | 0.1 | 0.1 |
-| Batch size | 73M (ramped) | 16M (constant) | ~32M (constant) | 4M (ramped) |
+| Peak LR | 2.2e-4 | 8e-5 | 7e-5 | 1e-2 (Adafactor) |
+| Warmup | 0.1% | 0.7% | 0.5% | 0.1% |
+| Schedule | cosine to 10% | cosine to 1% | cosine to 10% | cosine to 10% |
+| Weight decay | 0.1 | not reported | 0.1 | 0.1 |
+| Batch size | 73M (ramped) | 16M (ramped) | ~32M (constant) | 4M (ramped) |
 | Precision | FP8 | BF16 | BF16 | BF16 |
 | Total tokens | 14.8T | 15.6T | ~36T | 0.78T |
-| Stability | custom | standard | standard | z-loss |
+| Stability | custom | few spikes, no interventions | standard | z-loss |
 
 The takeaway: the schedule shape is universal (warmup + cosine to 10% floor), the weight decay is universal (0.1), the global-norm clip is universal (1.0). The differences are in the peak LR (smaller for bigger models), the batch size (larger for bigger models, but with a critical-batch ceiling), the precision (FP8 for DeepSeek-V3, BF16 for the rest), and the stability tricks (z-loss for PaLM, custom spike handling for DeepSeek-V3).
 

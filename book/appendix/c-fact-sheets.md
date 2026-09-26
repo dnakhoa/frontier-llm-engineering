@@ -9,6 +9,7 @@ Chapters, exercises, solutions and labs **link** to a fact rather than restating
 | Model | Primary source |
 |---|---|
 | [DeepSeek-V3](fact-sheets/deepseek-v3.md) | DeepSeek-V3 Technical Report, arXiv:2412.19437v2 |
+| [Llama 3](fact-sheets/llama-3.md) | The Llama 3 Herd of Models, arXiv:2407.21783v3; the Llama 3.1 model card at a pinned commit |
 | [Qwen3](fact-sheets/qwen3.md) | Qwen3 Technical Report, arXiv:2505.09388v1, and `Qwen/Qwen3-235B-A22B` `config.json` @8efa617 |
 | [Mixtral](fact-sheets/mixtral.md) | Mixtral of Experts, arXiv:2401.04088v1, and `mistralai/Mixtral-8x7B-v0.1` `config.json` @fc7ac94 |
 | [Tokenizers](fact-sheets/tokenizers.md) (DeepSeek-V3, Llama-3, Qwen3) | The published `tokenizer.json` and `config.json` files, hash-verified at pinned commits |

@@ -58,7 +58,7 @@ Sources:
 - **Internet Archive** — borrowed book collections.
 - **Smaller curated corpora** (BookCorpus, which is now mostly subsumed by larger sources).
 
-The 2023–2024 trend has been toward more careful book inclusion: smaller volumes, more curation, more attention to source quality. The Llama-3 paper, for example, reports including books from "a larger, more carefully curated corpus" relative to Llama-2.
+The 2023–2024 trend has been toward more careful book inclusion: smaller volumes, more curation, more attention to source quality. The Llama-3 paper is not an example: it names no books source, and it reports its mix by knowledge domain rather than by source ([fact sheet](../appendix/fact-sheets/llama-3.md#pre-training-data)).
 
 ### 3.2.4 Scientific and academic text
 
@@ -147,7 +147,7 @@ A common approach:
 
 The classifier is itself trained on outputs from a strong model, which was trained on previous data. This circularity is fine in practice because the strong model has absorbed most of the same quality signal.
 
-The Llama-2 paper introduced a particularly influential approach: train a quality classifier on data labeled by Llama-2 itself, then use it to filter the pre-training corpus. DeepSeek-V3's report does not describe its quality filtering.
+The Llama-3 paper describes a particularly influential version: ask Llama 2's chat model whether each document meets written quality requirements, train fast classifiers (fastText and DistilRoberta) on those labels, and filter the pre-training corpus with them ([fact sheet](../appendix/fact-sheets/llama-3.md#pre-training-data)). DeepSeek-V3's report does not describe its quality filtering.
 
 **A worked example.** A real (simplified) quality classifier:
 
@@ -264,7 +264,7 @@ The threshold n is a trade-off. n=8 is conservative (catches exact plagiarism). 
 
 A subtler problem: contamination against *rephrasings* of benchmarks. If a benchmark is rephrased and posted on a forum, the n-gram check misses it. Some labs use embedding-based contamination detection (compute embeddings of benchmark items, find nearest neighbors in the corpus, drop if similarity is high) but this is more expensive and less common.
 
-The Llama-3 paper has a particularly thorough section on contamination, including a discussion of how they re-checked for contamination after every major data update.
+The Llama-3 paper has a particularly thorough section on contamination: an 8-gram overlap analysis of 21 benchmarks, which estimates for each one how much the contamination actually raised the score ([fact sheet](../appendix/fact-sheets/llama-3.md#pre-training-data)).
 
 ### 3.3.6 PII and harmful content filtering
 
@@ -362,11 +362,13 @@ Concrete numbers, where the labs have published them:
 - Document packing without cross-sample masking; fill-in-the-middle on 10% of documents.
 
 **Llama-3 [\[5\]](../appendix/b-references.md#5-llama-3):**
-- 15.6T training tokens (for the 8B model, which was trained on more than Llama-2's 1.8T).
-- Data mix: ~50% English web, ~25% code, ~10% multilingual, ~7.5% academic, ~7.5% "other."
-- Heuristic filters (Llama-2-style) + learned quality classifier (Llama-2-based).
-- Aggressive dedup with MinHash and suffix arrays.
-- Detailed contamination check against 32 benchmarks.
+- About 15T training tokens, against Llama-2's 1.8T; the 405B flagship saw 15.6T.
+- Data mix: roughly 50% general knowledge, 25% math and reasoning, 17% code, 8% multilingual.
+- Heuristic filters + learned quality classifiers trained on Llama-2 labels.
+- Dedup at three levels: URL, document (global MinHash) and line. No suffix arrays.
+- Contamination analysis (8-gram overlap) reported for 21 benchmarks.
+
+Every number here is on the [Llama 3 fact sheet](../appendix/fact-sheets/llama-3.md#pre-training-data).
 
 **Qwen3 [\[6\]](../appendix/b-references.md#6-qwen3):**
 - ~36T pre-training tokens over three stages, in 119 languages and dialects; no language split is published ([fact sheet](../appendix/fact-sheets/qwen3.md#pre-training-data)).
@@ -422,7 +424,7 @@ A pre-training data engineer at a frontier lab is not doing pandas on a CSV. The
 1. **Data is the model.** A frontier pre-training corpus is built through a 10-stage pipeline that takes weeks and processes petabytes.
 2. **The pipeline is a distributed system.** It runs on a Ray or Spark cluster, with all the operational concerns of a production system.
 3. **Quality filtering is a model, not a heuristic.** Frontier labs train classifiers to predict document quality, and the classifiers are themselves trained on outputs from strong models.
-4. **Dedup is multi-granularity and aggressive.** Document-level MinHash, paragraph-level dedup, token-level suffix arrays. The Llama-2/3 paper showed that aggressive dedup dramatically improves model quality.
+4. **Dedup is multi-granularity and aggressive.** Document-level MinHash, paragraph-level dedup, token-level suffix arrays. Llama 3 used URL, document and line levels, and reports that its aggressive line-level pass gave strong improvements ([fact sheet](../appendix/fact-sheets/llama-3.md#pre-training-data)).
 5. **Contamination is a first-class concern.** Every benchmark you care about gets n-gram overlap checked against the corpus.
 6. **The mix is iterated during the run.** Frontier labs adjust the data mix based on validation loss curves.
 

@@ -24,7 +24,7 @@ A frontier cluster is a hierarchy, and at every level of the hierarchy the bandw
 
 **The super-pod / pod.** A super-pod is a collection of racks that share a non-blocking (or near-non-blocking) network fabric. The deepseek-v3 paper refers to this as a "pod" of 16 nodes (128 GPUs) [\[1\]](../appendix/b-references.md#1-deepseek-v3). The xAI Memphis cluster is a single super-pod of 100,000 H100s, but it is built from many smaller sub-pods internally [\[40\]](../appendix/b-references.md#40-xai-colossus). The classic InfiniBand "7-rail topology" — which we cover in §7.3 — is the canonical super-pod design.
 
-**The cluster.** The full site. For DeepSeek-V3, the cluster is 256 nodes = 2,048 GPUs in a single InfiniBand fabric [\[1\]](../appendix/b-references.md#1-deepseek-v3). For Llama-3 405B, the cluster is reported as 16,000 H100s in Meta's "two-by-two" data-center fabric [\[5\]](../appendix/b-references.md#5-llama-3). For Colossus, the cluster is 100,000 H100s in a single 150 MW building [\[40\]](../appendix/b-references.md#40-xai-colossus). For the announced Meta "1.3M H100 equivalent" supercluster, the cluster is multiple buildings, multiple substations, and multiple gigawatts.
+**The cluster.** The full site. For DeepSeek-V3, the cluster is 256 nodes = 2,048 GPUs in a single InfiniBand fabric [\[1\]](../appendix/b-references.md#1-deepseek-v3). For Llama-3 405B, the run used up to 16,000 H100s of a 24,000-GPU RoCE cluster, built as a three-layer Clos network of 3,072-GPU pods [\[5\]](../appendix/b-references.md#5-llama-3) ([fact sheet](../appendix/fact-sheets/llama-3.md#infrastructure-and-parallelism)). For Colossus, the cluster is 100,000 H100s in a single 150 MW building [\[40\]](../appendix/b-references.md#40-xai-colossus). For the announced Meta "1.3M H100 equivalent" supercluster, the cluster is multiple buildings, multiple substations, and multiple gigawatts.
 
 **The data center.** A cluster typically lives in a single data center, with its own substation, its own cooling plant, and its own network connection to the rest of the world. Larger labs have multiple data centers and stitch them together with long-haul fiber, but most pre-training runs are run inside a single data center because the latency between data centers is too high for synchronous collective communication.
 
@@ -87,7 +87,7 @@ For larger super-pods, leaves are aggregated into a spine layer (a 2-tier fat-tr
 
 The alternative to InfiniBand is RDMA over Converged Ethernet (RoCE), most commonly using Spectrum-X switches from NVIDIA. RoCE v2 runs RDMA over a standard Ethernet L3 network and is significantly cheaper to deploy at scale than InfiniBand. The bandwidth and latency are comparable at the link level, but RoCE is more sensitive to network configuration (PFC, ECN, congestion control) and the operational practice is less mature.
 
-The Llama-3 paper [\[5\]](../appendix/b-references.md#5-llama-3) reports that Meta's 16k-H100 cluster uses Ethernet (RoCE), not InfiniBand, with a customized Arista 7800R3 fabric. This is a deliberate trade: Ethernet is cheaper and easier to source, at the cost of more tuning work to get the same lossless RDMA behavior. Most hyperscaler-scale clusters are now Ethernet/RoCE; most "research cluster" purchases for labs that can afford it are still InfiniBand because the operational risk is lower. Anthropic's Project Rainier uses a custom interconnect (NeuronLink) because the accelerator itself is non-NVIDIA [\[41\]](../appendix/b-references.md#41-aws-trainium-2--project-rainier).
+The Llama-3 paper [\[5\]](../appendix/b-references.md#5-llama-3) reports that Meta's 16k-H100 cluster uses Ethernet (RoCE), not InfiniBand, on a fabric built from Arista 7800 and Minipack2 switches ([fact sheet](../appendix/fact-sheets/llama-3.md#infrastructure-and-parallelism)). This is a deliberate trade: Ethernet is cheaper and easier to source, at the cost of more tuning work to get the same lossless RDMA behavior. Most hyperscaler-scale clusters are now Ethernet/RoCE; most "research cluster" purchases for labs that can afford it are still InfiniBand because the operational risk is lower. Anthropic's Project Rainier uses a custom interconnect (NeuronLink) because the accelerator itself is non-NVIDIA [\[41\]](../appendix/b-references.md#41-aws-trainium-2--project-rainier).
 
 ## 7.4 Topology-aware placement
 
@@ -230,7 +230,7 @@ The environment variables in §7.4 are the ones every frontier engineer has memo
 - `NCCL_TIMEOUT` — watchdog timeout in seconds. Default 1800 (30 min); can be lowered for faster failure detection.
 - `NCCL_ASYNC_ERROR_HANDLING=1` — turn on async error handling. Without it, an NCCL error in one rank is reported asynchronously and can be very hard to attribute to a node.
 
-The DeepSeek-V3 paper does not publish its full NCCL environment [\[1\]](../appendix/b-references.md#1-deepseek-v3), but public DeepSeek code (the `DualPipe` and `DeepEP` repositories) and talks confirm the high-bandwidth / rail-optimized settings above. The Llama-3 paper [\[5\]](../appendix/b-references.md#5-llama-3) explicitly discusses the cluster tuning: Meta uses a custom NCCL plugin ("nccl-core" plugins) and a tuned topology for its RoCE fabric.
+The DeepSeek-V3 paper does not publish its full NCCL environment [\[1\]](../appendix/b-references.md#1-deepseek-v3), but public DeepSeek code (the `DualPipe` and `DeepEP` repositories) and talks confirm the high-bandwidth / rail-optimized settings above. The Llama-3 paper [\[5\]](../appendix/b-references.md#5-llama-3) explicitly discusses the cluster tuning: Meta runs NCCLX, its own fork of NCCL, tuned for the higher latency of its RoCE fabric ([fact sheet](../appendix/fact-sheets/llama-3.md#infrastructure-and-parallelism)).
 
 ## 7.6 Common NCCL failures
 
@@ -282,7 +282,7 @@ The three main categories:
 
 ### 7.7.1 The MTBF math
 
-Mean Time Between Failures for a GPU is published by NVIDIA in the range of 50,000–100,000 hours of useful life for H100. For a 2,048-GPU cluster at MTBF 100,000 hours, the expected time to the next GPU failure is $100{,}000 / 2{,}048 = 49$ hours, or roughly 2 days. In practice, the MTBF of an H100 at frontier workloads is closer to 8–24 hours because the workload is harder than the spec (sustained high temperature, high current, tight power envelopes) and the cluster is operated continuously. The Llama-3 paper reports an MTBF of "a few hours" at peak training load [\[5\]](../appendix/b-references.md#5-llama-3); the DeepSeek team has stated publicly that they target 2–4 hour MTBF and design the run around it.
+Mean Time Between Failures for a GPU is published by NVIDIA in the range of 50,000–100,000 hours of useful life for H100. For a 2,048-GPU cluster at MTBF 100,000 hours, the expected time to the next GPU failure is $100{,}000 / 2{,}048 = 49$ hours, or roughly 2 days. In practice, what matters is the interruption rate of the whole job, which adds every non-GPU component on top. The Llama-3 paper [\[5\]](../appendix/b-references.md#5-llama-3) gives the best public measurement: on 16K H100s, 419 unexpected interruptions in 54 days, one every ~3.1 hours, or about 51,000 GPU-hours per interruption from all causes ([fact sheet](../appendix/fact-sheets/llama-3.md#reliability)); the DeepSeek team has stated publicly that they target 2–4 hour MTBF and design the run around it.
 
 The 5-failures-per-day reality: a 2,000-GPU cluster at 8-hour MTBF loses on average 1 GPU every 8 hours. Across 60 days, that is 180 GPU-hours of failure, plus the recovery time. With 8 GPUs per node and 1 GPU's worth of node-level disruption per failure (the other 7 GPUs of the node are blocked), the effective loss is closer to 1,440 GPU-hours over 60 days. On a 2,048-GPU run, that is ~1.2% of the total compute. Not catastrophic, but non-trivial, and the cost of the failure is multiplied by the recovery time (loading a 1.2 TB checkpoint, restarting NCCL, re-establishing the dataloader position — typically 5–15 minutes).
 
@@ -301,7 +301,7 @@ The mitigation:
 - **Hardware ECC.** HBM ECC catches single-bit errors transparently and reports double-bit errors. NVIDIA's `nvidia-smi -q -d ECC` reports counts.
 - **Process isolation.** Run training under a process that can detect memory corruption (e.g., with `cuda-memcheck` periodically).
 
-DeepSeek has stated publicly that they encountered silent corruption during the V3 run and recovered by rolling back to a clean checkpoint [\[1\]](../appendix/b-references.md#1-deepseek-v3). The Llama-3 paper [\[5\]](../appendix/b-references.md#5-llama-3) discusses the issue in the context of their MTBF analysis but does not give numbers. Frontier labs treat silent corruption as a first-class failure mode and run periodic checksum checks on the gradient buffer as a default.
+DeepSeek has stated publicly that they encountered silent corruption during the V3 run and recovered by rolling back to a clean checkpoint [\[1\]](../appendix/b-references.md#1-deepseek-v3). The Llama-3 paper [\[5\]](../appendix/b-references.md#5-llama-3) counts it: silent data corruption caused 6 of its 419 unexpected interruptions (1.4%) ([fact sheet](../appendix/fact-sheets/llama-3.md#reliability)). Frontier labs treat silent corruption as a first-class failure mode and run periodic checksum checks on the gradient buffer as a default.
 
 ## 7.9 Filesystem failures
 
@@ -391,11 +391,11 @@ The pieces:
 - **Dataloader resumption.** The dataloader is stateful (it has a current position in the data, an RNG state for shuffling, and a current sequence index). The checkpoint must include the dataloader state, or the resumed run will re-process the data it just trained on. This is a common bug: the run resumes, the loss curve looks normal, but the data is duplicated and the effective number of tokens trained is less than the step counter says.
 - **RNG state.** AdamW is sensitive to the exact order of random operations (dropout, weight init, dataloader shuffling). If the RNG state is not restored, the resumed run is not bit-identical to the un-failed run, which makes the loss curve discontinuous. This is not catastrophic but it is operationally annoying.
 
-The two-week run that died at hour 200 problem: a 14-day run that crashed 6 hours before completion has lost 13 days of training and 6 hours of compute. The mitigation is aggressive checkpointing (every 30 minutes) and, increasingly, **in-memory replication** of the optimizer state on a small set of "hot spare" nodes that can take over if a node dies. The DeepSeek-V3 paper does not describe this in detail, but the Qwen3 team's public talks and the Meta Llama-3 paper both mention it [\[5\]](../appendix/b-references.md#5-llama-3).
+The two-week run that died at hour 200 problem: a 14-day run that crashed 6 hours before completion has lost 13 days of training and 6 hours of compute. The mitigation is aggressive checkpointing (every 30 minutes) and, increasingly, **in-memory replication** of the optimizer state on a small set of "hot spare" nodes that can take over if a node dies. The DeepSeek-V3 paper does not describe this in detail, and neither does the Llama-3 paper, which reports shorter job-startup and checkpointing times and fast diagnosis tools instead [\[5\]](../appendix/b-references.md#5-llama-3) ([fact sheet](../appendix/fact-sheets/llama-3.md#reliability)). The Qwen3 team's public talks mention it.
 
 ## 7.12 The MTBF reality
 
-Let's do the math for a few common cluster sizes, assuming a per-GPU MTBF of 16 hours of sustained training (a reasonable number for an H100 at full load, lower than the datasheet's spec):
+Let's do the math for a few common cluster sizes, assuming a per-GPU MTBF of about 16,000 hours of sustained training (16,384, to keep the arithmetic round; below the datasheet's spec):
 
 | Cluster size | MTBF (one failure) | Failures per day | Failures per 60-day run |
 |---|---|---|---|
@@ -406,13 +406,17 @@ Let's do the math for a few common cluster sizes, assuming a per-GPU MTBF of 16 
 
 The 100k-GPU row is why frontier training is, at the limit, a problem of operational engineering. Colossus at 100k H100s is expected to lose ~6 GPUs per hour, and the failure-recovery loop must complete in under a minute to keep the cluster utilization above 80%.
 
-In practice, the GPU failures are not the dominant cause of run interruptions. The dominant causes, in order, are:
+The assumption is pessimistic. Llama-3 measured about 8 unexpected interruptions a day on 16K H100s, from all causes, against the table's 24 ([fact sheet](../appendix/fact-sheets/llama-3.md#reliability)).
 
-1. **Network events** (switch port flaps, fiber issues, HCA errors). 40–50% of interruptions.
-2. **Filesystem events** (full disk, slow OSS, metadata server hiccup). 20–30%.
-3. **GPU hardware failures** (HBM, NVLink, PCIe). 10–20%.
-4. **Software bugs** (NCCL hangs, custom collective bugs, framework crashes). 10–20%.
-5. **Power and cooling events** (PSU failures, cooling pump trips, substation blips). 5–10%.
+In practice, GPU failures are the dominant cause of run interruptions. The one large public breakdown is Llama-3's: 419 unexpected interruptions in a 54-day snapshot of its 405B run [\[5\]](../appendix/b-references.md#5-llama-3). In order ([fact sheet](../appendix/fact-sheets/llama-3.md#reliability)):
+
+1. **GPU issues** (faulty GPUs, HBM3 and SRAM memory, the GPU system processor, thermal interfaces, silent data corruption). 58.7% of unexpected interruptions.
+2. **Software bugs.** 12.9%.
+3. **Network switches and cables.** 8.4%.
+4. **Unplanned host maintenance.** 7.6%.
+5. **Everything else** (NICs, NCCL watchdog timeouts, SSDs, power supplies, CPUs, host memory). Each 1.7% or less.
+
+About 78% of the unexpected interruptions were confirmed or suspected hardware issues. Chapter 21 works from the same numbers. Filesystem and cooling events do not appear as categories at all.
 
 A well-engineered frontier run keeps the failure-recovery loop under 5 minutes for 95% of interruptions. The 5% that take longer (a metadata server restart, a switch firmware update) cost more in lost time but are rare.
 
@@ -517,7 +521,7 @@ The dollar number is the constraint that bounds everything else.
 - Direct purchase of H100: ~$30,000–$40,000 per GPU. At a 3-year amortization and 80% utilization, per-GPU-hour: ~$1.40.
 - xAI Colossus: not publicly priced, but the $6B funding round and the 100k H100 build suggest a per-GPU-hour in the $1.50–$2.50 range for the compute itself, plus power, cooling, and operations.
 
-The DeepSeek-V3 paper reports 2,788K H800 GPU-hours for its full training, of which 2,664K was pre-training that took "less than two months" [\[1\]](../appendix/b-references.md#1-deepseek-v3). At the report's assumed $2 per GPU-hour, that is $5.576M ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#context-extension-post-training-and-cost)). The Llama-3 405B training cost is reported at "tens of millions of dollars" of compute, with the 16,000 H100 cluster running for ~50 days; the per-GPU-hour implied is in the same $1–$3 range. Anthropic's Project Rainier is reportedly a >$10B multi-year commitment, spread over hundreds of thousands of Trainium 2 chips [\[41\]](../appendix/b-references.md#41-aws-trainium-2--project-rainier).
+The DeepSeek-V3 paper reports 2,788K H800 GPU-hours for its full training, of which 2,664K was pre-training that took "less than two months" [\[1\]](../appendix/b-references.md#1-deepseek-v3). At the report's assumed $2 per GPU-hour, that is $5.576M ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#context-extension-post-training-and-cost)). Meta gives no dollar figure for Llama-3 405B. Its model card gives 30.84M H100 GPU-hours ([fact sheet](../appendix/fact-sheets/llama-3.md#compute)), which at $1–$3 per GPU-hour is roughly $30M–$90M. Anthropic's Project Rainier is reportedly a >$10B multi-year commitment, spread over hundreds of thousands of Trainium 2 chips [\[41\]](../appendix/b-references.md#41-aws-trainium-2--project-rainier).
 
 **Cluster utilization.** The fraction of the time the cluster is doing useful work, as opposed to being broken, idle, or running overhead. Frontier numbers:
 
@@ -533,10 +537,10 @@ The non-utilized time is spent on: failure recovery (5–15%), checkpointing (1�
 
 A cost calculation example. The Llama-3 405B pre-training run, in approximate dollars:
 
-- 16,000 H100s × 50 days × 24 hours = 19.2M H100-hours
-- At $2/H100-hour (rough estimate for owned hardware): $38.4M
-- At AWS p5 pricing ($12/GPU-hour): $230M
-- The reported number is "tens of millions," consistent with owned hardware at $1.50–$2.00/GPU-hour.
+- 30.84M H100-hours, from Meta's model card ([fact sheet](../appendix/fact-sheets/llama-3.md#compute))
+- At $2/H100-hour (rough estimate for owned hardware): ~$62M
+- At AWS p5 pricing ($12/GPU-hour): ~$370M
+- Meta reports no dollar figure. These prices are our assumptions, not Meta's.
 
 **Cost of frontier lab buildouts.** The xAI Colossus announcement [\[40\]](../appendix/b-references.md#40-xai-colossus) is the most cited number: a 100k H100 cluster built in 122 days, at an estimated cost of $3B–$5B for the compute and another $1B–$2B for the site, power, and cooling. The Anthropic Project Rainier announcement [\[41\]](../appendix/b-references.md#41-aws-trainium-2--project-rainier) implies a similar multi-billion-dollar multi-year commitment, but on a non-NVIDIA platform. Meta's announced 1.3M-H100-equivalent supercluster is a multi-year, multi-site build that, at $30K–$40K per H100-equivalent, implies a $40B–$50B capex. These are the numbers that bound the next 2–3 years of the field.
 
@@ -581,7 +585,7 @@ The next chapter is the optimization deep dive: the optimizer internals, the LR 
 
 - [\[1\] DeepSeek-V3 Technical Report](../appendix/b-references.md#1-deepseek-v3) — primary case study for the 2,048-H800 cluster layout and the parallelism strategy.
 - [\[3\] Megatron-LM](../appendix/b-references.md#3-megatron-lm) — the reference 3D-parallelism implementation; the basis of the topology-aware placement discussion.
-- [\[5\] Llama 3](../appendix/b-references.md#5-llama-3) — the Meta training infrastructure section, including the RoCE fabric and the Llama-3 MTBF discussion.
+- [\[5\] Llama 3](../appendix/b-references.md#5-llama-3) — the Meta training infrastructure section, including the RoCE fabric and the interruption statistics from the 54-day snapshot.
 - [\[6\] Qwen3](../appendix/b-references.md#6-qwen3) — the Chinese-side case study for the Qwen3 cluster at Alibaba Panjin.
 - [\[17\] ZeRO](../appendix/b-references.md#17-zero) — DeepSpeed ZeRO and the FSDP/ZeRO-3 equivalence for the checkpoint and recovery discussion.
 - [\[18\] FSDP](../appendix/b-references.md#18-fsdp) — PyTorch FSDP for the failure-recovery and sharded-checkpoint discussion.

@@ -139,7 +139,7 @@ The key fields in a frontier FSDP config:
 - `forward_prefetch=True` — same idea, in the forward direction.
 - The wrapping policy: per-block wrapping is the standard. Wrapping the entire model in a single FSDP unit is the wrong granularity — it does not allow the all-gather to overlap with compute. Wrapping each individual linear layer is too fine — the per-FSDP-unit overhead dominates. Per transformer block is the sweet spot.
 
-Llama-3 used FSDP for its 16K-GPU training run [\[5\]](../appendix/b-references.md#5-llama-3). The Meta team reported a per-block wrapping policy with `BACKWARD_PRE` prefetching and BF16 mixed precision, combined with tensor parallelism for the dense compute and pipeline parallelism for the layer split (4D parallelism, see §6.10).
+Llama-3 used FSDP for its 16K-GPU training run [\[5\]](../appendix/b-references.md#5-llama-3), as the outermost of four parallelism dimensions: [TP, CP, PP, DP], where DP is FSDP (4D parallelism, see §6.10). The report says FSDP tolerates the slow outer network by prefetching sharded weights and reducing gradients asynchronously. It does not publish a wrapping policy or prefetch setting, so the settings above are the standard recommendation, not Meta's ([fact sheet](../appendix/fact-sheets/llama-3.md#infrastructure-and-parallelism)).
 
 A subtle point about FSDP and the all-gather pattern. FSDP is a *communication-compute overlap* pattern. The all-gather of layer $i+1$'s weights happens while layer $i$'s matmul is running. The matmul of layer $i+1$ then proceeds. The all-gather and the matmul of two different layers run on the same GPU concurrently, and the all-gather bandwidth is "free" as long as the matmul is compute-bound. For a 70B model on H100s, the matmul is large enough that this overlap works well. For smaller models, the matmul is too fast and the all-gather dominates.
 
@@ -528,10 +528,12 @@ For Llama-3 on 16K H100s [\[5\]](../appendix/b-references.md#5-llama-3):
 
 - TP = 8 (within a node)
 - PP = 16 (across 16 nodes)
-- DP = 128
+- DP = 128, implemented as FSDP
 - Total: $8 \times 16 \times 128 = 16{,}384$ GPUs
-- FSDP within each PP rank for optimizer state sharding
-- Sequence length up to 8K, so no CP needed
+- CP = 1 at the 8K pre-training length
+- For the long-context stage, the same 16,384 GPUs switch to CP = 16 with DP = 8, at 131,072-token sequences ($8 \times 16 \times 16 \times 8 = 16{,}384$)
+
+Both layouts are rows of the report's Table 4 ([fact sheet](../appendix/fact-sheets/llama-3.md#infrastructure-and-parallelism)). Context parallelism is what Llama-3 adds for long context, not something it avoids.
 
 The two runs share PP=16, and the difference lies in the other dimensions. Llama-3's 405B model is dense, so every layer's full weight matrices sit on the devices that compute them, and TP=8 inside a node is what makes each layer fit. DeepSeek-V3's weights are mostly routed experts, which EP already splits 64 ways, so it can drop TP entirely. The bubble is $\frac{15}{M + 15}$; with $M = 64$, the bubble is $\frac{15}{79} \approx 19\%$. Llama-3 trades off a larger bubble for a smaller per-replica memory footprint, and the per-FLOP cost of the bubble is compensated by the throughput of running on 16K GPUs.
 
@@ -562,7 +564,7 @@ This is one of the deepest roles in a frontier lab. A senior engineer in this ro
 5. **PP is the cross-node lever.** It introduces a bubble, which scales as $O(P / M)$. 1F1B is the standard schedule; selective activation recomputation is the standard memory reducer.
 6. **CP is necessary for long contexts.** Ring Attention (Liu et al. 2023) splits the sequence across GPUs with a ring-style K/V transfer. For 128K contexts, CP is mandatory.
 7. **EP is the MoE lever.** The all-to-all is the dominant cost, and DeepSeek's DualPipe hides it by overlapping with attention and FFN compute.
-8. **The frontier uses 3D, 4D, and 5D parallelism.** Llama-3: TP=8 × PP=16 × DP=128. DeepSeek-V3: PP=16 × EP=64 (across 8 nodes) × ZeRO-1 DP, with no TP ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#parallelism-layout)). The combinations are tuned to the model and the cluster.
+8. **The frontier uses 3D, 4D, and 5D parallelism.** Llama-3: TP=8 × PP=16 × DP=128 at 8K, and TP=8 × CP=16 × PP=16 × DP=8 at 128K ([fact sheet](../appendix/fact-sheets/llama-3.md#infrastructure-and-parallelism)). DeepSeek-V3: PP=16 × EP=64 (across 8 nodes) × ZeRO-1 DP, with no TP ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#parallelism-layout)). The combinations are tuned to the model and the cluster.
 9. **Communication bandwidth drives the topology.** NVLink for TP, InfiniBand for PP and DP. EP prefers NVLink, but DeepSeek-V3 runs it across 8 nodes and pays for that with DualPipe overlap and node-limited routing. The placement of the parallelism dimensions is not arbitrary, and sometimes the right move is to break the default on purpose.
 10. **Activation recomputation is the third lever.** Selective recomputation (Korthikanti 2022) is the standard frontier choice: it recovers 60–70% of the activation memory at a cost of 5–10% extra FLOPs.
 
@@ -579,7 +581,7 @@ The next chapter covers the cluster reality: the actual hardware, the InfiniBand
 
 - [\[1\] DeepSeek-V3 Technical Report](../appendix/b-references.md#1-deepseek-v3) — DeepSeek-AI, December 2024. The 671B MoE with 16-way PP × 64-way EP (across 8 nodes) × ZeRO-1 DP, no TP × 64-way DP on 2,048 H800s, with the DualPipe schedule.
 - [\[3\] Megatron-LM](../appendix/b-references.md#3-megatron-lm) — Shoeybi et al., 2019. The original 3D parallelism paper; the basis for TP, PP, and the 1F1B schedule.
-- [\[5\] Llama 3 Herd of Models](../appendix/b-references.md#5-llama-3) — Meta AI, July 2024. The 16K-GPU FSDP-based training, with the TP=8 × PP=16 × DP=128 configuration.
+- [\[5\] Llama 3 Herd of Models](../appendix/b-references.md#5-llama-3) — Meta AI, July 2024. The 16K-GPU 4D-parallel training (FSDP as the DP dimension), and its Table 4 layouts.
 - [\[17\] ZeRO](../appendix/b-references.md#17-zero) — Rajbhandari et al., SC20. The sharded data-parallel paper; the basis for DeepSpeed and the conceptual foundation for FSDP.
 - [\[18\] PyTorch FSDP](../appendix/b-references.md#18-fsdp) — Zhao et al., VLDB 2023. The PyTorch-native ZeRO-3 equivalent.
 - [\[38\] Ring Attention](../appendix/b-references.md#38-ring-attention) — Liu, Zaharia, Abbeel, NeurIPS 2023. The context-parallelism algorithm.

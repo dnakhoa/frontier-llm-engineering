@@ -554,7 +554,7 @@ A reasonable total-cost-of-ownership estimate, including all of the above, is **
 
 The comparison to Western frontier runs, with the caveats:
 
-- **Llama-3-405B [\[5\]](../appendix/b-references.md#5-llama-3).** 405B dense, 15.6T tokens, $3.8 \times 10^{25}$ training FLOPs on up to 16K H100s. Meta did not publish a dollar figure; estimates in secondary coverage vary widely.
+- **Llama-3.1-405B [\[5\]](../appendix/b-references.md#5-llama-3).** 405B dense, 15.6T tokens, $3.8 \times 10^{25}$ training FLOPs on up to 16K H100s. Meta's model card gives 30.84M H100 GPU-hours ([fact sheet](../appendix/fact-sheets/llama-3.md#compute)). At $2/H100-hour that is ~$62M; Meta has not published a dollar figure, and the price is our assumption.
 - **GPT-4.** Estimated >$100M training cost (OpenAI has not published; industry estimates are in this range).
 - **Claude 3.5 Sonnet.** Anthropic has not published training cost estimates.
 
@@ -578,7 +578,7 @@ The headline capability numbers — V3 matching or exceeding Llama-3.1-405B-Inst
 
 Four specific contributions, each of which has propagated through the field [\[1\]](../appendix/b-references.md#1-deepseek-v3) [\[2\]](../appendix/b-references.md#2-deepseek-v2):
 
-1. **FP8 training at scale.** The report claims the first validation of FP8 training "on an extremely large-scale model". The recipe is E4M3 on all tensors, tile- and block-wise scaling, and FP32 promotion of partial sums every 128 elements, with BF16 optimizer moments. The recipe is the contribution; the kernels are the engineering substrate. (Llama-3.1, released five months earlier, trained in BF16.)
+1. **FP8 training at scale.** The report claims the first validation of FP8 training "on an extremely large-scale model". The recipe is E4M3 on all tensors, tile- and block-wise scaling, and FP32 promotion of partial sums every 128 elements, with BF16 optimizer moments. The recipe is the contribution; the kernels are the engineering substrate. (Llama-3.1 was released five months earlier, and its report uses FP8 only for inference ([fact sheet](../appendix/fact-sheets/llama-3.md#training-recipe)).)
 
 2. **Auxiliary-loss-free MoE load balancing.** The bias-based mechanism is a clean alternative to the standard auxiliary loss. The argument — that the auxiliary loss directly competes with the main loss, while the bias-based mechanism does not — is theoretically and empirically supported. V3 pairs it with a tiny sequence-wise balance loss rather than removing auxiliary losses entirely. Other labs chose differently: Qwen3, for example, uses a global-batch balancing *loss* instead (see its [fact sheet](../appendix/fact-sheets/qwen3.md)).
 

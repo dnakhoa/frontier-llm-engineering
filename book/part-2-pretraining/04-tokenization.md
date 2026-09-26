@@ -227,19 +227,21 @@ Code has its own tokenization challenges. Three issues dominate:
 - **Common keywords and operators should be single tokens.** `def`, `class`, `return`, `if`, `else`, `==`, `!=`, `->` are all good candidates.
 - **Identifiers and string literals are highly variable.** A good tokenizer handles them as sub-pieces the model can compose.
 
-Llama-3 specifically increased the number of merges dedicated to whitespace tokens, encoding runs of spaces (one, two, three, four, tab) as separate tokens [\[5\]](../appendix/b-references.md#5-llama-3). A 4-space indent costs 1 token instead of 4. DeepSeek-Coder, the predecessor to DeepSeek-V3's code abilities, similarly added a large set of whitespace tokens.
+Llama-3's vocabulary has single tokens for runs of spaces (86 of them, up to 128 spaces long) and of tabs (20), so a 4-space indent costs 1 token instead of 4. Those tokens all come with the 100K entries Meta took from tiktoken; none is among the 28K it added ([fact sheet](../appendix/fact-sheets/tokenizers.md#llama-3)). The Llama-3 report says nothing about whitespace. DeepSeek-Coder, the predecessor to DeepSeek-V3's code abilities, similarly added a large set of whitespace tokens.
 
 The trade-off: every whitespace token in the vocabulary is a slot that could have been used for a common word. For a code-heavy model the trade-off is worth it; for a general-purpose chat model it is less clear.
 
 A second concern is the handling of long identifiers. In a real codebase, identifiers like `process_user_input_with_validation` are common. A good tokenizer will split this as `process`, `_user`, `_input`, `_with`, `_validation`, each of which appears in many codebases. A bad tokenizer will split it as individual characters, costing 30+ tokens for one identifier.
 
-A real tokenizer behavior on a line of Python:
+A real tokenizer behavior on a line of Python, from the published Llama-3 `tokenizer.json` (@8cde5ca):
 
 ```python
 code = "    return [x*2 for x in items if x > 0]"
-# Llama-3 (128K, code-aware): 16 tokens
-#   ['<|begin_of_text|>', '    ', 'return', ' [', 'x', '*', '2', ' for',
-#    ' x', ' in', ' items', ' if', ' x', ' >', ' 0', ']']
+# Llama-3 (128K): 17 tokens
+#   ['<|begin_of_text|>', '   ', ' return', ' [', 'x', '*', '2', ' for',
+#    ' x', ' in', ' items', ' if', ' x', ' >', ' ', '0', ']']
+# The pre-tokenizer gives the last space of the indent to ' return', and
+# splits digits from the space before them, so ' 0' is two tokens
 # A naive 32K English-only BPE might split 'return' as 'ret','urn', hurting the model
 ```
 
@@ -419,7 +421,7 @@ This is why the tokenizer choice gets A/B tested before a major run. The typical
 
 The cost of the A/B test is small relative to the cost of the full run. The cost of a bad choice is enormous. This asymmetry drives a lot of the pre-training team's attention to tokenization.
 
-A real example: the Llama-3 team explicitly increased vocab size from 32K (Llama-2) to 128K (Llama-3), citing multilingual and code improvements [\[5\]](../appendix/b-references.md#5-llama-3). The Qwen3 team's vocabulary distribution reflects a similar iteration, even when the size stays constant at 152K [\[6\]](../appendix/b-references.md#6-qwen3). DeepSeek describe V3's tokenizer as byte-level BPE "with an extended vocabulary of 128K tokens", its pre-tokenizer and training data "modified to optimize multilingual compression efficiency" [\[1\]](../appendix/b-references.md#1-deepseek-v3). The vocab size grows with the model, not the other way around.
+A real example: the Llama-3 team explicitly increased vocab size from 32K (Llama-2) to 128K (Llama-3), citing better compression (3.17 → 3.94 characters per token on an English sample) and better support for non-English languages [\[5\]](../appendix/b-references.md#5-llama-3) ([fact sheet](../appendix/fact-sheets/tokenizers.md#llama-3)). The Qwen3 team's vocabulary distribution reflects a similar iteration, even when the size stays constant at 152K [\[6\]](../appendix/b-references.md#6-qwen3). DeepSeek describe V3's tokenizer as byte-level BPE "with an extended vocabulary of 128K tokens", its pre-tokenizer and training data "modified to optimize multilingual compression efficiency" [\[1\]](../appendix/b-references.md#1-deepseek-v3). The vocab size grows with the model, not the other way around.
 
 ## 4.11 Real configurations
 
@@ -658,7 +660,7 @@ The next chapter covers the model architecture: the choices in attention, MoE, a
 **References for this chapter**
 
 - [\[1\] DeepSeek-V3 Technical Report](../appendix/b-references.md#1-deepseek-v3) — for the DeepSeek-V3 tokenizer description (128K BPE, bilingual EN/ZH).
-- [\[5\] Llama 3 Herd of Models](../appendix/b-references.md#5-llama-3) — for the Llama-3 tokenizer description (128K BPE, byte-level, code-aware whitespace).
+- [\[5\] Llama 3 Herd of Models](../appendix/b-references.md#5-llama-3) — for the Llama-3 tokenizer description (128K BPE: 100K from tiktoken plus 28K for non-English languages).
 - [\[6\] Qwen3 Technical Report](../appendix/b-references.md#6-qwen3) — for the Qwen3 tokenizer description (byte-level BPE, 151,669 tokens).
 - [\[24\] SentencePiece](../appendix/b-references.md#24-sentencepiece) — Kudo and Richardson, the Unigram / BPE implementation.
 - [\[31\] BPE (Sennrich et al., 2016)](../appendix/b-references.md#31-bpe-sennrich-et-al) — the original Byte-Pair Encoding for neural NLP.

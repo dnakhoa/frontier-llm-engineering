@@ -399,7 +399,7 @@ with $\text{SiLU}(x) = x \cdot \sigma(x)$ (a.k.a. Swish), and $\odot$ the elemen
 
 The gating mechanism is the key: the up projection produces the "content," the gate projection produces a learned per-channel multiplier, and the elementwise product selects which channels pass through. The gate learns to suppress irrelevant features and amplify relevant ones, in a more flexible way than a single activation can.
 
-The FFN block has three parameter matrices instead of two, so to keep the parameter count constant, the hidden dimension $d_\text{ff}$ is reduced by a factor of $2/3$ (rounded to a multiple of 256 for kernel efficiency). The standard rule of thumb is $d_\text{ff} = \frac{8}{3} d_\text{model}$ rounded to a hardware-friendly multiple. For Llama-3-70B with $d_\text{model} = 8192$, that gives $d_\text{ff} \approx 28672$ (the published value).
+The FFN block has three parameter matrices instead of two, so to keep the parameter count constant, the hidden dimension $d_\text{ff}$ is reduced by a factor of $2/3$ (rounded to a multiple of 256 for kernel efficiency). The standard rule of thumb is $d_\text{ff} = \frac{8}{3} d_\text{model}$ rounded to a hardware-friendly multiple. For Llama-3-70B with $d_\text{model} = 8192$, the rule gives $d_\text{ff} \approx 21{,}845$. The published value is 28,672, which is $3.5 \times d_\text{model}$: Llama 3 runs a wider FFN than the rule of thumb, at every size ([fact sheet](../appendix/fact-sheets/llama-3.md#architecture)). The rule is a starting point, not a law.
 
 SwiGLU has won. Every Llama, Qwen, DeepSeek, Mistral, and Gemma uses SwiGLU (or the close variant GeGLU, which uses GeLU instead of SiLU). The quality win over GeLU FFN is small but consistent — a few percent on standard evals. The parameter overhead is the only cost, and that is recouped by the smaller $d_\text{ff}$.
 
@@ -753,11 +753,11 @@ From the Llama 3 report [\[5\]](../appendix/b-references.md#5-llama-3):
 - **Layers**: 80.
 - **Hidden dim**: 8192.
 - **Attention**: GQA with 64 query heads, 8 KV heads. Head dim 128. KV cache per token per layer: $2 \cdot 8 \cdot 128 = 2048$ numbers.
-- **FFN**: SwiGLU, $d_\text{ff} = 28672$ ($= 8/3 \cdot 8192 \cdot \text{round-to-256}$).
+- **FFN**: SwiGLU, $d_\text{ff} = 28672$ ($= 3.5 \cdot 8192$, wider than the $8/3$ rule of §5.7; [fact sheet](../appendix/fact-sheets/llama-3.md#architecture)).
 - **Normalization**: RMSNorm, pre-norm.
 - **Position encoding**: RoPE, base $\theta = 500000$ (extended base for better length extrapolation).
-- **Context**: trained at 8K, extended to 128K via RoPE scaling + fine-tune.
-- **Precision**: BF16 mixed precision; FP8 was not used in the original Llama-3 release (added in some Llama-3.1 variants).
+- **Context**: trained at 8K, then extended to 128K by continued pre-training in six stages, about 800B tokens ([fact sheet](../appendix/fact-sheets/llama-3.md#long-context-and-annealing)).
+- **Precision**: BF16 mixed precision, with FP32 gradient accumulation. FP8 appears in the report only as a quantization for 405B *inference*, not in training ([fact sheet](../appendix/fact-sheets/llama-3.md#training-recipe)).
 
 Llama-3-70B is the canonical "GQA + SwiGLU + RMSNorm + RoPE" dense configuration. If you read any open-source dense model paper from late 2023 onward, it almost certainly uses the same building blocks, sometimes with the head/KV-head ratio tuned.
 

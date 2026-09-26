@@ -50,7 +50,7 @@ A working glossary of the terms used throughout the book. Where a term is local 
 
 **FlashAttention.** The IO-aware exact attention algorithm from [\[19\]](b-references.md#19-flashattention). Tiles the attention computation to fit in SRAM and avoids materializing the full N×N attention matrix, reducing memory from O(N^2) to O(N).
 
-**FP8.** 8-bit floating-point. Used in frontier training (DeepSeek-V3, Llama-3.1 onwards) for the bulk of the matmuls, with BF16 retained for numerically sensitive operations.
+**FP8.** 8-bit floating-point. Used in frontier training (DeepSeek-V3 onwards) for the bulk of the matmuls, with BF16 retained for numerically sensitive operations. Llama 3.1 used FP8 for inference only ([fact sheet](fact-sheets/llama-3.md#training-recipe)).
 
 **FSDP (Fully Sharded Data Parallel).** The PyTorch-native equivalent of ZeRO-3 [\[18\]](b-references.md#18-fsdp). Shards model parameters, gradients, and optimizer state across data-parallel workers, with all-gather on demand.
 
