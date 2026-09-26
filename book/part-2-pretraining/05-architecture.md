@@ -494,7 +494,7 @@ The compute-vs-parameter trade-off:
 | Dense FFN | $3 d_\text{model} d_\text{ff}$ | $3 d_\text{model} d_\text{ff}$ | $3 d_\text{model} d_\text{ff}$ |
 | MoE, $N$ experts, top-$k$ | $3 N d_\text{model} d_\text{ff}$ | $3 k d_\text{model} d_\text{ff}$ | $3 k d_\text{model} d_\text{ff}$ |
 
-For Mixtral-8x7B with $N=8, k=2$, the total parameters are $8 \times$ the active parameters; the FLOPs per token are $2/8 = 1/4$ of what a dense model with the same total parameters would use. This is the core reason MoE dominates for serving: you get the *capacity* of a 47B model (Mixtral's total parameter count) at the *latency* of a ~13B model.
+For Mixtral-8x7B with $N=8, k=2$, the expert parameters are $N/k = 4 \times$ the active expert parameters (overall, 47B total against 13B active, because attention and embeddings are shared; see the [fact sheet](../appendix/fact-sheets/mixtral.md#context-and-parameters)); the expert FLOPs per token are $2/8 = 1/4$ of what a dense model with the same total parameters would use. This is the core reason MoE dominates for serving: you get the *capacity* of a 47B model (Mixtral's total parameter count) at the *latency* of a ~13B model.
 
 The catch is **routing** — the all-to-all collective that sends each token to its assigned expert. In a 256-expert MoE split across 8 GPUs, the all-to-all bandwidth dominates the wall time, which is why DeepSeek built a custom collective (DeepEP) and a custom pipeline schedule (DualPipe) to hide it. We cover the systems side in Chapter 6.
 
@@ -638,7 +638,7 @@ Several other MoE designs are deployed at scale; the frontier has not converged 
 
 **Snowflake Arctic.** A dense + MoE hybrid: a 10B dense transformer plus a 480B MoE residual expert layer. The dense backbone does most of the work and the MoE layer adds capacity where needed. Full details are in the Arctic model card.
 
-**Qwen3 MoE.** The Qwen3 family includes both dense and MoE variants; the MoE versions use a design similar to DeepSeekMoE with fine-grained experts and shared experts. We see the specific configuration in §5.14.
+**Qwen3 MoE.** The Qwen3 family includes both dense and MoE variants; the MoE versions use fine-grained experts like DeepSeekMoE, but with no shared expert and a global-batch load-balancing loss ([fact sheet](../appendix/fact-sheets/qwen3.md#architecture-qwen3-235b-a22b)). We see the specific configuration in §5.14.
 
 The common thread: fine-grained experts ($E \geq 16$), top-$k$ with $k \geq 2$, either an auxiliary loss or a bias-based balancer, often a shared expert. The frontier has moved away from the "8 experts, top-1" Switch design toward higher $E$ and $k$.
 
@@ -724,7 +724,7 @@ The simplest extension scales the RoPE frequencies by a factor $s$: $\theta_i = 
 - **128K–1M**: hybrid attention, or a separate long-context training stage with full attention on long sequences.
 - **>1M**: only a few models (Gemini 1.5 Pro) have demonstrated this; the cost is extreme.
 
-DeepSeek-V3 was trained at 4K and extended to 128K via YaRN. Llama-3 was trained at 8K and extended to 128K. Qwen3 ships a 128K variant directly trained at that context length. Mixtral-8x7B is a 32K-context model.
+DeepSeek-V3 was trained at 4K and extended to 128K via YaRN. Llama-3 was trained at 8K and extended to 128K. Qwen3 was pre-trained at 4K and then 32K, raising the RoPE base with ABF, and reaches 128K only at inference with YaRN and Dual Chunk Attention ([fact sheet](../appendix/fact-sheets/qwen3.md#pre-training-stages)). Mixtral-8x7B was trained at 32K ([fact sheet](../appendix/fact-sheets/mixtral.md#context-and-parameters)).
 
 ## 5.14 Specific frontier configurations
 
@@ -763,35 +763,35 @@ Llama-3-70B is the canonical "GQA + SwiGLU + RMSNorm + RoPE" dense configuration
 
 ### 5.14.3 Qwen3 (MoE variant)
 
-From the Qwen3 report [\[6\]](../appendix/b-references.md#6-qwen3):
+From the Qwen3 report [\[6\]](../appendix/b-references.md#6-qwen3) and the published `config.json`; every value is on the [Qwen3 fact sheet](../appendix/fact-sheets/qwen3.md#architecture-qwen3-235b-a22b):
 
 - **Total parameters**: 235B (Qwen3-235B-A22B). **Active per token**: 22B.
 - **Layers**: 94.
 - **Hidden dim**: 4096.
 - **Attention**: GQA with 64 query heads, 4 KV heads. Head dim 128.
-- **MoE**: 128 routed experts, no shared expert, top-8 routing. Each expert: $d_\text{ff} = 12288$. Standard auxiliary loss with low weight.
+- **MoE**: 128 routed experts, no shared expert, top-8 routing, in all 94 layers. Each expert: $d_\text{ff} = 1536$ (`moe_intermediate_size`; the config's `intermediate_size` of 12,288 sizes a dense FFN, which this model does not have). A global-batch load-balancing loss.
 - **Normalization**: RMSNorm.
 - **FFN activation**: SwiGLU.
-- **Position encoding**: RoPE with dual base (separate bases for half the dimensions each).
-- **Context**: trained at 32K directly, no extension needed.
+- **Position encoding**: RoPE with a single base, raised from 10,000 to 1,000,000 with ABF during the long-context stage.
+- **Context**: pre-trained at 4K (S1, S2), then 32K (S3); 128K at inference via YaRN and Dual Chunk Attention ([stages](../appendix/fact-sheets/qwen3.md#pre-training-stages)).
 
-The Qwen3 MoE is a fine-grained design similar in spirit to DeepSeekMoE (many small experts, top-$k > 1$) but without the shared expert and using the standard auxiliary loss rather than bias-based balancing. The team has noted that the bias-based approach is on their roadmap; the 2025 release used the standard recipe.
+The Qwen3 MoE is a fine-grained design similar in spirit to DeepSeekMoE (many small experts, top-$k > 1$): each expert is only $1536 / 4096 = 0.375$ of the model width. It differs in two choices. It has no shared expert, and it balances load with a global-batch load-balancing loss, which the report adopts to encourage expert specialization. It does not use DeepSeek's bias-based balancing.
 
 ### 5.14.4 Mixtral-8x7B
 
-From the Mixtral paper [\[37\]](../appendix/b-references.md#37-mixtral-of-experts):
+From the Mixtral paper [\[37\]](../appendix/b-references.md#37-mixtral-of-experts) and the published `config.json`; see the [Mixtral fact sheet](../appendix/fact-sheets/mixtral.md#architecture):
 
 - **Total parameters**: 46.7B. **Active per token**: 12.9B.
 - **Layers**: 32.
 - **Hidden dim**: 4096.
-- **Attention**: Standard MHA with 32 heads, head dim 128. (Note: *not* GQA — Mixtral uses the original MHA, which is unusual for a 2024 frontier model. The choice was made for simplicity and quality; the inference cost is higher than a GQA Mixtral would be.)
-- **MoE**: 8 experts, top-2 routing. Each expert: $d_\text{ff} = 14336$. Standard Switch-style auxiliary loss.
+- **Attention**: GQA with 32 query heads and 8 KV heads, head dim 128, so four query heads share each KV head. KV cache per token per layer: $2 \cdot 8 \cdot 128 = 2048$ numbers.
+- **MoE**: 8 experts, top-2 routing. Each expert: $d_\text{ff} = 14336$. The paper does not describe its load-balancing loss; the released config carries an auxiliary-loss coefficient (`router_aux_loss_coef` 0.02).
 - **Normalization**: RMSNorm.
 - **FFN activation**: SwiGLU.
 - **Position encoding**: RoPE, base $\theta = 1000000$.
-- **Context**: 32K (extended from initial 8K training via RoPE scaling).
+- **Context**: 32K, the length it was trained at; the paper describes no shorter first stage ([fact sheet](../appendix/fact-sheets/mixtral.md#context-and-parameters)).
 
-Mixtral-8x7B is the reference "8-expert top-2" design. It is not the most efficient frontier MoE (GQA + fine-grained experts + shared expert would do better), but it is the cleanest illustration of how the standard MoE recipe works in production. Most open-source MoE models that have shipped since 2024 are either Mixtral clones or DeepSeekMoE-flavored variants.
+Mixtral-8x7B is the reference "8-expert top-2" design. It is not the most efficient frontier MoE (fine-grained experts + a shared expert would do better), but it is the cleanest illustration of how the standard MoE recipe works in production. Most open-source MoE models that have shipped since 2024 are either Mixtral clones or DeepSeekMoE-flavored variants.
 
 ## 5.15 The trade-off matrix
 

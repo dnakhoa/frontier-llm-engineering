@@ -20,13 +20,13 @@ The broad shape:
 
 The data is still the same general pre-training data — web, code, math, books, papers — but the *mix* has been deliberately shifted, the *context length* has often been extended, and the *learning rate* is in its annealing phase. The model is the same architecture; the training is just being tuned for the capabilities that post-training will need to inherit.
 
-This phase is rarely announced as a separate "mid-training" stage. Llama-3 [\[5\]](../appendix/b-references.md#5-llama-3) calls it the *annealing phase* — the last few percent of pre-training where the learning rate decays on a high-quality data mix. DeepSeek-V3 [\[1\]](../appendix/b-references.md#1-deepseek-v3) talks about a "context length extension" stage separately from the bulk pre-training and the annealing. Qwen3 [\[6\]](../appendix/b-references.md#6-qwen3) describes a 32K → 128K long-context extension phase. The names differ; the work is the same.
+This phase is rarely announced as a separate "mid-training" stage. Llama-3 [\[5\]](../appendix/b-references.md#5-llama-3) calls it the *annealing phase* — the last few percent of pre-training where the learning rate decays on a high-quality data mix. DeepSeek-V3 [\[1\]](../appendix/b-references.md#1-deepseek-v3) talks about a "context length extension" stage separately from the bulk pre-training and the annealing. Qwen3 [\[6\]](../appendix/b-references.md#6-qwen3) names three pre-training stages: a general stage at 4K, a reasoning stage at 4K with a faster learning-rate decay, and a long-context stage at 4K → 32K ([fact sheet](../appendix/fact-sheets/qwen3.md#pre-training-stages)). The names differ; the work is the same.
 
 ## 9.2 Why mid-training exists
 
 Four motivations, all of which apply in practice, and most of which apply in the same run.
 
-**1. Long-context extension.** A frontier base model is typically trained at 8K context (Llama-3, Qwen3) or 4K. The market wants 128K, 256K, 1M. You cannot just *evaluate* a model at 128K if it was trained at 8K; the position embeddings have never seen those positions, and the attention patterns have never seen those distances. So you need a phase where the model trains on long sequences with the position embedding extended. This is the *RoPE extension* phase.
+**1. Long-context extension.** A frontier base model is typically trained at 8K context (Llama-3) or 4K (DeepSeek-V3, and Qwen3 before its 32K stage; see the [fact sheet](../appendix/fact-sheets/qwen3.md#pre-training-stages)). The market wants 128K, 256K, 1M. You cannot just *evaluate* a model at 128K if it was trained at 8K; the position embeddings have never seen those positions, and the attention patterns have never seen those distances. So you need a phase where the model trains on long sequences with the position embedding extended. This is the *RoPE extension* phase.
 
 **2. Domain upweighting.** Pre-training is dominated by web text because that is the largest source. But the last few percent of pre-training is the highest-leverage compute you have: it is the data the model is "freshest" on, the data that biases the final loss. Frontier labs use this last chunk to upweight high-quality domains — books, papers, code, math — to bias the final model toward capabilities that the bulk mix underweights.
 
@@ -122,7 +122,7 @@ The hyperparameters that matter: the learning rate is much lower than pre-traini
 
 The frontier labs do not all run the same schedule. Three patterns are common.
 
-**Two-stage.** Bulk pre-training at the original context length, then a long-context extension phase. Used by Llama-3 (8K → 128K), Qwen3 (32K → 128K). The mid-training is the long-context phase.
+**Two-stage.** Bulk pre-training at the original context length, then a long-context extension phase. Used by Llama-3 (8K → 128K). The mid-training is the long-context phase. Qwen3 has three stages in a different order: general pre-training on over 30T tokens at 4K, a reasoning stage of about 5T tokens at 4K with accelerated learning-rate decay, then a long-context stage at 32K. Its 128K comes from YaRN and Dual Chunk Attention at inference, not from training ([fact sheet](../appendix/fact-sheets/qwen3.md#pre-training-stages)).
 
 **Three-stage.** Bulk pre-training, then a long-context extension, then an annealing phase. Used by some labs for the largest runs. Each stage has its own data mix, learning rate, and context length. The boundaries are operational checkpoints.
 
@@ -240,7 +240,7 @@ NTK-aware is widely used because it is a single-line change to the RoPE code and
 
 **YaRN.** The Peng et al. 2023 paper [\[35\]](../appendix/b-references.md#35-yarn). The most sophisticated of the three. YaRN observes that different RoPE frequencies need different treatment: very low frequencies (long-range) need to be interpolated (like PI), very high frequencies (short-range) need to be left alone, and the middle range needs a smooth transition. YaRN also rescales the attention logits by a factor of `1/t` where `t` is the length scaling, to compensate for the change in attention distribution.
 
-In practice, YaRN gives the best quality-vs-length trade-off of the three methods, and is the standard for frontier long-context extension. Llama-3 uses a YaRN-style rescaling for its 128K context. Qwen3 uses a similar approach.
+In practice, YaRN gives the best quality-vs-length trade-off of the three methods, and is the standard for frontier long-context extension. Llama-3 uses a YaRN-style rescaling for its 128K context. Qwen3 does something different: during its 32K stage it raises the RoPE base from 10,000 to 1,000,000 (ABF), and it applies YaRN, with Dual Chunk Attention, only at inference ([fact sheet](../appendix/fact-sheets/qwen3.md#pre-training-stages)).
 
 The RoPE math, briefly. Standard RoPE computes the inverse frequencies as
 
@@ -459,7 +459,7 @@ The next chapter is the case study — DeepSeek-V3 end-to-end — where the mult
 
 - [\[1\] DeepSeek-V3 Technical Report](../appendix/b-references.md#1-deepseek-v3) — DeepSeek-AI, December 2024. Source for the multi-stage training description and the FP8 + long-context combination.
 - [\[5\] Llama 3 Herd of Models](../appendix/b-references.md#5-llama-3) — Meta AI, July 2024. Source for the annealing phase description.
-- [\[6\] Qwen3 Technical Report](../appendix/b-references.md#6-qwen3) — Qwen Team, 2025. Source for the long-context extension at 32K → 128K.
+- [\[6\] Qwen3 Technical Report](../appendix/b-references.md#6-qwen3) — Qwen Team, 2025. Source for the three pre-training stages (4K general, 4K reasoning, 4K → 32K long context) and the ABF RoPE-base change.
 - [\[15\] DeepSeekMath / GRPO](../appendix/b-references.md#15-grpo) — Shao et al., April 2024. Source for the math-domain continued pre-training and the GRPO algorithm used in post-training.
 - [\[19\] FlashAttention](../appendix/b-references.md#19-flashattention) — Dao et al., 2022. Source for the IO-aware attention algorithm and the varlen mode used in long-context training.
 - [\[35\] YaRN](../appendix/b-references.md#35-yarn) — Peng et al., 2023. Source for the YaRN RoPE extension.

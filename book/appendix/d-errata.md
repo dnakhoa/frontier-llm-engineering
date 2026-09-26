@@ -149,3 +149,40 @@ The text as first published is tagged `v1.0` in the repository, so every "the bo
 - **The source says:** the lab's own rows give 8.0 s per step on InfiniBand and 28.0 s on 100G Ethernet, a **3.5×** difference. The printed figure is now computed from those rows and asserted, as the style guide requires of every printed claim.
 - **Where:** `lab07_collective_bandwidth` section 7; `labs/README.md`; Chapter 7's lab note.
 - **Fixed in:** v1.0.1
+
+### E-050 — Qwen3's expert width and Exercise 5.4
+
+- **The book said:** each of Qwen3-235B's experts has "$d_\text{ff} = 12288$". Solution 5.4 built on it: "151M per expert", "**1,209M**" active expert parameters per layer. Solution 5.8's config table repeated "12,288 per expert".
+- **The source says:** the expert width is `moe_intermediate_size` = **1,536**. 12,288 is the config's `intermediate_size`, which sizes a dense FFN layer, and this model has none: all 94 layers are MoE. Only 1,536 reproduces the report's 22B active parameters; 12,288 would give about 121B. See the [Qwen3 fact sheet](fact-sheets/qwen3.md#architecture-qwen3-235b-a22b).
+- **Where:** Chapter 5 §5.14.3; Exercise 5.4; Solution 5.4 parts 1–3; Solution 5.8 part 1.
+- **Fixed in:** v1.0.1
+- **If you worked this before v1.0.1:** the exercise's conclusion reverses. *Old conclusion:* Qwen3 has the largest experts of the three (151M each, 1,209M active per layer, three times V3's), so it sits with Mixtral on the coarse side. *New conclusion:* each Qwen3 expert is 18.9M and 151M are active per layer, the smallest of the three. Its expert width is 0.375 of the model width, close to V3's 0.29 and far from Mixtral's 3.5, so Qwen3 is a fine-grained MoE. Its eight active experts add up to one ordinary dense FFN ($8 \times 1536 = 12{,}288 = 3d$), which is what fine-grained segmentation is. *Why:* the exercise read the wrong field of the config. Exercise 5.4 now makes choosing the field part of the problem: you check each candidate against the published 22B.
+
+### E-051 — Qwen3's MoE design: shared experts, balancing and dense layers
+
+- **The book said:** the Qwen3 MoE models use "fine-grained experts and shared experts"; they use the "standard auxiliary loss with low weight", with bias-based balancing "on their roadmap". Chapter 10 said V3's auxiliary-loss-free balancing "is now used in Qwen3", and that V3's first-K-dense pattern "is now used in Qwen3".
+- **The source says:** "the Qwen3-MoE design excludes shared experts", and it adopts "the global-batch load balancing loss" ([Qwen3] §2). The report says nothing of a roadmap. The published config has no dense layers: `mlp_only_layers` is empty and `decoder_sparse_step` is 1. See the [Qwen3 fact sheet](fact-sheets/qwen3.md#architecture-qwen3-235b-a22b).
+- **Where:** Chapter 5 §5.11 and §5.14.3; Chapter 10 §10.4.3 and §10.13.
+- **Fixed in:** v1.0.1
+
+### E-052 — Qwen3's context length and RoPE recipe
+
+- **The book said:** Qwen3 was "trained at 32K directly, no extension needed", "ships a 128K variant directly trained at that context length", and uses "RoPE with dual base". Chapter 9 said Qwen3 "describes a 32K → 128K long-context extension phase", was "trained at 8K context", followed a two-stage "32K → 128K" schedule, and extended context with YaRN like Llama-3. Solution 9.7 repeated "(32K → 128K)".
+- **The source says:** three pre-training stages. S1 is over 30T tokens at 4,096; S2 is about 5T reasoning-heavy tokens at 4,096, with accelerated learning-rate decay; S3 is hundreds of billions of tokens at 32,768. During S3 the RoPE base is raised from 10,000 to 1,000,000 with ABF. 128K comes from YaRN and Dual Chunk Attention "during inference" ([Qwen3] §3.2). The released config has a single `rope_theta`. See the [Qwen3 fact sheet](fact-sheets/qwen3.md#pre-training-stages).
+- **Where:** Chapter 5 §5.13.3 and §5.14.3; Chapter 9 §9.1, §9.2, §9.6, §9.10 and its reference note; Solution 9.7 parts 1 and 2.
+- **Fixed in:** v1.0.1
+- **If you worked this before v1.0.1:** Solution 9.7 part 2 said all three reports put a small single-digit share of tokens into their final phases. Qwen3 does not. Its long-context stage is about 1% of ~36T, but its reasoning stage, the one with the faster decay and the reweighted mix, is about 5T, roughly 14%.
+
+### E-053 — Qwen3's pre-training corpus
+
+- **The book said:** Qwen3's "~36T tokens (across all stages including pre-training, mid-training, and post-training data)", with a mix "closer to 50/50 English/Chinese".
+- **The source says:** the 36T tokens are the pre-training corpus, "covering up to 119 languages and dialects" ([Qwen3] §1, §3.1). The report gives no English/Chinese split. See the [Qwen3 fact sheet](fact-sheets/qwen3.md#pre-training-data).
+- **Where:** Chapter 3 §3.2.1, §3.2.5, §3.5 and its reference note.
+- **Fixed in:** v1.0.1
+
+### E-054 — Mixtral's attention, context and parameter ratio
+
+- **The book said:** Mixtral uses "Standard MHA … *not* GQA"; its context is "32K (extended from initial 8K training via RoPE scaling)"; and, under "From the Mixtral paper", it uses a "Standard Switch-style auxiliary loss". §5.8 said its "total parameters are $8 \times$ the active parameters".
+- **The source says:** Table 1 gives `n_heads` 32 and `n_kv_heads` 8, so Mixtral uses GQA. The model "was trained with a context size of 32k tokens", and no shorter first stage is described ([Mixtral] Abstract, §2). The paper does not describe its load-balancing loss. With 8 experts and top-2, the expert parameters are 4× the active ones; overall the model is 47B total against 13B active. See the [Mixtral fact sheet](fact-sheets/mixtral.md).
+- **Where:** Chapter 5 §5.8 and §5.14.4.
+- **Fixed in:** v1.0.1
