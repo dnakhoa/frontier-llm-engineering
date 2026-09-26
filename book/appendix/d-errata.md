@@ -152,9 +152,9 @@ The text as first published is tagged `v1.0` in the repository, so every "the bo
 
 ### E-020 — Lab descriptions that quoted smoke-test numbers
 
-- **The book said:** the labs index described `lab03` as recalling "~26%" of duplicates with exact hashing, `lab04` as showing a "~1.8×" Vietnamese penalty, `lab08_scaling_laws` as misplacing E by "+0.47 nats", and `lab22` as "86.9%" fragmentation, all beside full-size runtimes.
-- **The source says:** those are the numbers the labs print under `FLE_SMOKE_TEST=1`. At full size, which is how the index describes them, the labs print **47.7%**, **2.05×**, **+0.266 nats** and **86.5%**. The lessons are unchanged, but the numbers were not what a reader running the lab would see. The index now quotes full-size runs, and `lab20`'s `torch.compile` speedup is described as the machine-dependent timing it is.
-- **Where:** `labs/README.md`.
+- **The book said:** the labs index described `lab03` as recalling "~26%" of duplicates with exact hashing, `lab04` as showing a "~1.8×" Vietnamese penalty, `lab08_scaling_laws` as misplacing E by "+0.47 nats", and `lab22` as "86.9%" fragmentation and a "3.3×" continuous-batching speedup, and `lab13` as a corrupted reward commanding "~16%" of the batch gradient, all beside full-size runtimes.
+- **The source says:** those are the numbers the labs print under `FLE_SMOKE_TEST=1`. At full size, which is how the index describes them, the labs print **47.7%**, **2.05×**, **+0.266 nats**, **86.5%** and **5.78×**, and `lab13` prints **17%** (its smoke value is 12%; the old 16% matched neither). The lessons are unchanged, but the numbers were not what a reader running the lab would see. The index now quotes full-size runs, and `lab20`'s `torch.compile` speedup is described as the machine-dependent timing it is.
+- **Where:** `labs/README.md`; the lab notes in Chapters 13 and 22.
 - **Fixed in:** v1.0.1
 
 ### E-021 — The Llama 3 data mix, corpus and dedup

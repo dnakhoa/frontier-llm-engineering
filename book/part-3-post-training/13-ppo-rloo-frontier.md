@@ -364,7 +364,7 @@ The next chapter takes the opposite approach: DPO, which removes the reward mode
 ---
 
 **Exercises:** [Chapter 13 problem set](../../exercises/ch13.md) — includes the four-model memory budget, a KL-budget design problem, and diagnosing six broken runs from their curves.
-**Lab:** [`lab13_ppo_minimal`](../../labs/lab13_ppo_minimal.py) — PPO and RLOO on the same task, removing one guardrail at a time. Finds that the usual KL coefficient does not restrain the policy at all, that gradient clipping can silently do the trust region's job, and that one corrupted reward in 500 commands ~16% of the batch gradient.
+**Lab:** [`lab13_ppo_minimal`](../../labs/lab13_ppo_minimal.py) — PPO and RLOO on the same task, removing one guardrail at a time. Finds that the usual KL coefficient does not restrain the policy at all, that gradient clipping can silently do the trust region's job, and that one corrupted reward in 500 commands ~17% of the batch gradient.
 
 ---
 

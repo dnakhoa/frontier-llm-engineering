@@ -262,7 +262,7 @@ The next chapter is evaluation — how you know any of this worked, why most rep
 ---
 
 **Exercises:** [Chapter 22 problem set](../../exercises/ch22.md) — includes KV-cache sizing across attention variants, a concurrency budget, and a batching-policy design problem under an SLO.
-**Lab:** [`lab22_kv_cache_and_batching`](../../labs/lab22_kv_cache_and_batching.py) — compare static against continuous batching on a heavy-tailed length distribution (3.3×), then build a paged block allocator with refcounted prefix sharing and watch fragmentation fall from 86.9% to 0.7%.
+**Lab:** [`lab22_kv_cache_and_batching`](../../labs/lab22_kv_cache_and_batching.py) — compare static against continuous batching on a heavy-tailed length distribution (5.8×), then build a paged block allocator with refcounted prefix sharing and watch fragmentation fall from 86.5% to 0.7%.
 
 ---
 
