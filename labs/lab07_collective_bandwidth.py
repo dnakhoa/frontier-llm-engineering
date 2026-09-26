@@ -350,7 +350,11 @@ for label, compute, comm in scenarios:
 IB_ROW, ETH_ROW = scenarios[0][0], scenarios[2][0]
 eth_vs_ib = step_s[ETH_ROW] / step_s[IB_ROW]
 headline = f"{eth_vs_ib:.1f}x"
-assert float(headline[:-1]) == round(step_s[ETH_ROW] / step_s[IB_ROW], 1)
+# Recompute from the raw scenario rows (compute + exposed comm), independently
+# of step_s, so the printed headline is checked against the model itself.
+_ib, _eth = scenarios[0], scenarios[2]
+_recomputed = (_eth[1] + max(0.0, _eth[2] - _eth[1])) / (_ib[1] + max(0.0, _ib[2] - _ib[1]))
+assert headline == f"{_recomputed:.1f}x", (headline, _recomputed)
 
 print("\nThe Ethernet row is the one to sit with: the same model, the same code,")
 print("the same GPU count, and communication no longer hides. Step time goes from")

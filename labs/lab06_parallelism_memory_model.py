@@ -422,7 +422,7 @@ H100_64 = Cluster("64x H100", 64, 80.0, 990.0, 450.0, 40.0)
 H100_1024 = Cluster("1024x H100", 1024, 80.0, 990.0, 450.0, 40.0)
 # The H800's NVLink is cut down relative to the H100's. These are the numbers
 # DeepSeek report for their own cluster (V3 report section 3.2.2): NVLink
-# 160 GB/s, InfiniBand 50 GB/s. See book/appendix/fact-sheets/deepseek-v3.md.
+# 160 GB/s, InfiniBand 50 GB/s. See book/appendix/fact-sheets/deepseek-v3.md#cluster-and-interconnect.
 H800_2048 = Cluster("2048x H800", 2048, 80.0, 990.0, 160.0, 50.0)
 
 print("Model parameter counts")
@@ -567,8 +567,8 @@ for model, cluster, seq, prec, batch in [
 # ### 8b. What DeepSeek actually ran, and why the calculator disagrees
 #
 # DeepSeek-V3 trained with PP=16, EP=64 spanning 8 nodes, ZeRO-1 data
-# parallelism and no TP (V3 report section 3.2; the book's fact sheet). The
-# calculator above does not pick that. Compare the two, and read the gap as a
+# parallelism and no TP (V3 report section 3.2; the book's fact sheet). Does the
+# calculator above pick that? Compare the two, and read any gap as a
 # statement about what this model leaves out, not about DeepSeek.
 
 # %%
@@ -594,12 +594,18 @@ for label, par, mem, perf, hidden in [
 
 ratio_exposed = v3_perf["step_s"] / best_perf["step_s"]
 ratio_hidden = v3_hidden_step / best_hidden_step
-print(f"\nWith EP charged as exposed, DeepSeek's layout is {ratio_exposed:.2f}x the pick's step time.")
+# Every printed multiplier is computed from the rows above; assert it, so the
+# narration cannot drift from the numbers it describes.
+assert abs(ratio_exposed - v3_perf["step_s"] / best_perf["step_s"]) < 1e-12
+assert abs(ratio_hidden - (v3_perf["step_s"] - v3_perf["ep_comm_s"]) / (best_perf["step_s"] - best_perf["ep_comm_s"])) < 1e-12
+picked_v3 = (best_par.tp, best_par.pp, best_par.ep) == (V3_ACTUAL.tp, V3_ACTUAL.pp, V3_ACTUAL.ep)
+print(f"\nThe calculator {'DOES' if picked_v3 else 'does not'} pick DeepSeek's layout.")
+print(f"With EP charged as exposed, DeepSeek's layout is {ratio_exposed:.2f}x the pick's step time.")
 print(f"With EP overlapped (DualPipe's goal), the ratio is {ratio_hidden:.2f}x.")
 print("What this calculator omits, each of which V3 relies on:")
 print("  - overlap of the all-to-all with compute (DualPipe, report 3.2.1);")
 print("  - node-limited routing: each token reaches at most 4 nodes over InfiniBand")
-print("    and fans out over NVLink (report 3.2.2); here every token pays the slow link;")
+print("    and fans out over NVLink (report 3.2.2); here every token pays the slow link.")
 
 # %% [markdown]
 # ## 9. Where the communication goes

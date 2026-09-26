@@ -256,7 +256,8 @@ A character-level BPE pre-tokenizer might just split on whitespace. A byte-level
 The Llama-3 pre-tokenizer regex (from the published tokenizer config [\[5\]](../appendix/b-references.md#5-llama-3)):
 
 ```python
-# Llama-3 pre-tokenizer, as in the published tokenizer.json (split for reading)
+# ILLUSTRATIVE layout: Llama-3's published pre-tokenizer regex, split onto lines for reading.
+# CI checks that the pieces join to the real pattern (tools/test_transcriptions.py).
 LLAMA3_PATTERN = (
     r"(?i:'s|'t|'re|'ve|'m|'ll|'d)"          # English contractions
     r"|[^\r\n\p{L}\p{N}]?\p{L}+"             # Letters (with optional prefix punct)
@@ -272,13 +273,14 @@ Key points:
 
 - Tiktoken's original regex uses possessive quantifiers (`?+`, `++`) to prevent backtracking. The Hugging Face `tokenizer.json` spells the same pattern without them.
 - `\p{N}{1,3}` is the trick that handles numbers as small chunks: `1234567` becomes `123`, `456`, `7` (or `1`, `234`, `567`, depending on position).
-- ` ?[^\s\p{L}\p{N}]++` matches punctuation, optionally with a leading space — so ` .` and `.` are different tokens.
+- ` ?[^\s\p{L}\p{N}]+[\r\n]*` matches punctuation, plus any newlines right after it, optionally with a leading space — so ` .` and `.` are different tokens.
 - `\s+` matches runs of whitespace as a single token. This is what makes indentation cheap: 4 spaces of indent = 1 token.
 
 Qwen3's regex is the same with **one** change, and it is not about Chinese:
 
 ```python
-# Qwen3 pre-tokenizer, as in the published tokenizer.json (split for reading)
+# ILLUSTRATIVE layout: Qwen3's published pre-tokenizer regex, split onto lines for reading.
+# CI checks that the pieces join to the real pattern (tools/test_transcriptions.py).
 QWEN3_PATTERN = (
     r"(?i:'s|'t|'re|'ve|'m|'ll|'d)"
     r"|[^\r\n\p{L}\p{N}]?\p{L}+"
