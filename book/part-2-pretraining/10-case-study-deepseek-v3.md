@@ -524,7 +524,7 @@ A reasonable total-cost-of-ownership estimate, including all of the above, is **
 
 The comparison to Western frontier runs, with the caveats:
 
-- **Llama-3.1-405B [\[5\]](../appendix/b-references.md#5-llama-3).** 405B dense, 15.6T tokens, ~16,000 H100-hours × 30M H100-hours of compute (rough industry estimate). At $2/H100-hour, the comparable cost is ~$60M. Meta has not published a precise number.
+- **Llama-3.1-405B [\[5\]](../appendix/b-references.md#5-llama-3).** 405B dense, 15.6T tokens, on up to 16K H100s. Meta's model card gives 30.84M H100 GPU-hours ([fact sheet](../appendix/fact-sheets/llama-3.md#compute)). At $2/H100-hour, the comparable cost is ~$62M. Meta has not published a dollar figure; the price is our assumption.
 - **GPT-4.** Estimated >$100M training cost (OpenAI has not published; industry estimates are in this range).
 - **Claude 3.5 Sonnet.** Anthropic has not published training cost estimates.
 
@@ -547,7 +547,7 @@ The headline capability numbers — V3 matching or exceeding Llama-3.1-405B-Inst
 
 Four specific contributions, each of which has propagated through the field [\[1\]](../appendix/b-references.md#1-deepseek-v3) [\[2\]](../appendix/b-references.md#2-deepseek-v2):
 
-1. **FP8 training at scale.** V3 was the first frontier model to be trained end-to-end in FP8, with per-block scaling and the E4M3 / E5M2 split between forward and activation-gradient matmuls. The custom CUTLASS / Triton kernels for FP8 are the engineering substrate; the recipe is the contribution. Subsequent frontier runs (Llama-3.1 onward, the Qwen3 series, the Kimi K2 series) have all adopted FP8 with similar fine-grained scaling.
+1. **FP8 training at scale.** V3 was the first frontier model to be trained end-to-end in FP8, with per-block scaling and the E4M3 / E5M2 split between forward and activation-gradient matmuls. The custom CUTLASS / Triton kernels for FP8 are the engineering substrate; the recipe is the contribution. Subsequent frontier runs (the Qwen3 series, the Kimi K2 series) have all adopted FP8 with similar fine-grained scaling. Llama 3.1 is not one of them: it was released before V3, and its report uses FP8 only for inference ([fact sheet](../appendix/fact-sheets/llama-3.md#training-recipe)).
 
 2. **Auxiliary-loss-free MoE load balancing.** The bias-based mechanism is a clean alternative to the standard auxiliary loss. The argument — that the auxiliary loss directly competes with the main loss, while the bias-based mechanism does not — is theoretically and empirically supported. The mechanism is now used in Qwen3, in the Mistral large model, and in several other MoE designs.
 
