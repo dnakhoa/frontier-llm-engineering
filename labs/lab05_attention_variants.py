@@ -268,11 +268,11 @@ print("formula up to a model nobody here can allocate.")
 # 80 layers, 64 query heads, head dim 128, BF16. This is the configuration from
 # the exercise set, and now we can check the answers.
 #
-# One note on the MLA row. The exercise uses the convention $2 d_c$ with
-# $d_c = 512$, i.e. 1024 numbers per layer per token. DeepSeek-V3's actual
-# configuration caches a joint latent of 512 *plus* a decoupled RoPE key of 64,
-# which is 576. Both rows are below, because the gap between "the book's tidy
-# number" and "the config file's number" is itself worth seeing.
+# One note on the MLA row. MLA caches one joint latent per token ($d_c = 512$
+# in DeepSeek-V3) *plus* a decoupled RoPE key ($d_h^R = 64$), shared by all heads:
+# 576 numbers per layer per token. Earlier editions of the exercise used
+# "$2 d_c$" = 1024, which is not how MLA works; that row is kept below, labelled,
+# so you can see how far the wrong convention was from the config file.
 
 # %%
 LAYERS, Q_HEADS, HD, BYTES = 80, 64, 128, 2       # BF16
@@ -288,7 +288,7 @@ SCHEMES = [
     ("MHA (64 KV heads)", grouped_bytes_per_token(64)),
     ("GQA 8:1 (8 KV heads)", grouped_bytes_per_token(8)),
     ("MQA (1 KV head)", grouped_bytes_per_token(1)),
-    ("MLA (2*d_c, d_c=512)", mla_bytes_per_token(512, 512)),
+    ("MLA, wrong 2*d_c convention", mla_bytes_per_token(512, 512)),
     ("MLA (DeepSeek-V3: 512+64)", mla_bytes_per_token(512, 64)),
 ]
 

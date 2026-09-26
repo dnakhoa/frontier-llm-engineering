@@ -53,3 +53,34 @@ The text as first published is tagged `v1.0` in the repository, so every "the bo
 - **The source says:** it is not any lab's file; the book wrote it to show the shape of a 3D-parallel config. It is now labelled illustrative, as are the similar blocks in Chapters 6 and 9. The book's rule is now that a real config is generated from the published file, and anything else says so.
 - **Where:** Chapter 1 §1.5; Chapter 6 §6.9; Chapter 9 §9.6.
 - **Fixed in:** v1.0.1
+
+### E-007 — DeepSeek-V3's attention: "4 KV heads" and a 1,024-number cache
+
+- **The book said:** V3's MLA has "128 Q heads, 4 KV heads (GQA-like inside MLA)". It showed MLA code that repeats 4 KV heads 32×, and it said MLA caches $2 d_c = 1024$ numbers per token per layer (Chapter 5 §5.14.1; Exercise 5.2).
+- **The source says:** MLA has no KV-head grouping. All 128 heads' K and V are reconstructed from one 512-d latent, and position is carried by a separate 64-d RoPE key shared across heads. Only those two are cached: **576** numbers per token per layer ([fact sheet](fact-sheets/deepseek-v3.md#architecture)).
+- **Where:** Chapter 10 §10.4 and §10.4.1 (the code and its notes); Chapter 5 §5.14.1; Exercise 5.2 and its solution; the lab05 row label.
+- **Fixed in:** v1.0.1
+- **If you worked this before v1.0.1:** Exercise 5.2's MLA answers change from 164 KB/token, 21 GB per 128K sequence and 7 sequences in 10 GB, to **92 KB, 12.1 GB and 13**. MLA is 3.6× smaller than GQA 8:1, not 2×. Chapter 5's V3 cache comparison changes from 15 GB vs 30 GB to 9.2 GB vs 33 GB.
+
+### E-008 — DeepSeek-V3 has 61 layers, the first three dense
+
+- **The book said:** "60 transformer blocks"; "the first transformer layer is dense … The exact number of dense layers is not published, but later presentations suggest 1"; the MoE FFN is in "every layer except the first". It added that the pattern "is now used in Qwen3".
+- **The source says:** 61 layers. "We substitute all FFNs except for the first three layers with MoE layers", so 58 MoE layers; the config's `first_k_dense_replace` is 3 ([fact sheet](fact-sheets/deepseek-v3.md#architecture)). The report gives no rationale for the dense layers. The Qwen3 claim had no source and is removed.
+- **Where:** Chapter 10 §10.4, §10.4.2, §10.4.3 and takeaway 2; Chapter 5 §5.14.1; Exercise 5.3; Solutions 5.3, 10.1 and 10.8.
+- **Fixed in:** v1.0.1
+- **If you worked this before v1.0.1:** Exercise 5.3's routed-expert total changes from 676B ("essentially 100%") to **654B (~97%)**, leaving ~17B for attention, dense FFNs, shared experts and embeddings. Active parameters reconcile at ≈37.4B. Solution 10.8's "676B > 671B overshoot" no longer exists; the architecture adds up exactly.
+
+### E-009 — DeepSeek-V3's multi-token prediction
+
+- **The book said:** MTP was "introduced in DeepSeek-V3". The extra heads are "a single linear layer", "cheap", with the MTP "head" costing "0.6B parameters". It said MTP gives "1–2% on most evals" and "1.5–2x" speculative speedup, and uses a weight of 0.3 throughout. Chapter 10 added that MTP outputs provide a "denser preference signal for DPO" and that R1's reasoning traces are "an MTP-style rollout", reused by "the R1 distillation pipeline".
+- **The source says:** V3's MTP is "inspired by Gloeckle et al. (2024)". It is a sequential module: one full Transformer block that combines the main model's state with the next token's embedding. The released checkpoint is 685B = 671B + **14B MTP**. The loss weight is 0.3 for the first 10T tokens, then 0.1. As a speculative draft, second-token acceptance is 85–90%, giving **1.8×** tokens per second. The "1–2%" figure and the DPO and R1 connections appear in neither the V3 nor the R1 report ([fact sheet](fact-sheets/deepseek-v3.md#architecture)).
+- **Where:** Chapter 5 §5.12, §5.14.1 and takeaway 6; Chapter 10 §10.5 and §10.13; Exercise 10.5 and its solution; Solution 10.1.
+- **Fixed in:** v1.0.1
+- **If you worked this before v1.0.1:** Solution 10.5 part 2's overhead estimate changes from 0.6B (<0.1%) to **14B (~2%)**. The $12d^2$ rule is for dense blocks, and V3's MTP block is an MoE block. Compute overhead stays a few percent.
+
+### E-010 — DeepSeek-V3's MoE gating and "removing" the auxiliary loss
+
+- **The book said:** the Chapter 10 DeepSeekMoE code applied the balancing bias to the scores and then took the sigmoid of the *biased* scores as gating weights, unnormalized. The text said V3 "remove[s] the auxiliary loss".
+- **The source says:** "the bias term is only used for routing. The gating value, which will be multiplied with the FFN output, is still derived from the original affinity score." Gating weights are the sigmoid affinities of the selected experts, normalized over them. V3 also keeps a complementary sequence-wise balance loss with weight 0.0001 ([fact sheet](fact-sheets/deepseek-v3.md#architecture)).
+- **Where:** Chapter 10 §10.4.2 (code and text) and §10.6.
+- **Fixed in:** v1.0.1

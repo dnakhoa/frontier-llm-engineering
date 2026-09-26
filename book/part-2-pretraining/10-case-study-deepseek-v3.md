@@ -85,11 +85,13 @@ The architecture is a **decoder-only transformer** with two structural innovatio
 
 - **Total parameters:** 671B.
 - **Active parameters per token:** 37B.
-- **Layers:** 60 transformer blocks.
+- **Layers:** 61 transformer blocks. The first 3 have dense FFNs; the other 58 are MoE.
 - **Hidden dim:** 7168.
-- **Attention heads:** 128 Q heads, 4 KV heads (GQA-like inside MLA).
-- **MLA latents:** `kv_latent_dim=512`, `q_latent_dim=1536`.
+- **Attention:** MLA with 128 heads of dimension 128. There is **no KV-head grouping**: every head's K and V are reconstructed from one shared latent.
+- **MLA latents:** KV latent 512, query latent 1536, plus a 64-dimensional decoupled RoPE key.
 - **MoE:** 256 routed experts + 1 shared expert, top-8 routing.
+
+Every number is a row on the [fact sheet](../appendix/fact-sheets/deepseek-v3.md#architecture).
 - **MoE expert dim:** 2048 (each expert is a small SwiGLU FFN).
 
 Chapter 5 covers the architecture in detail; this section focuses on the DeepSeek-specific choices.
@@ -98,81 +100,86 @@ Chapter 5 covers the architecture in detail; this section focuses on the DeepSee
 
 MLA was introduced in DeepSeek-V2 [\[2\]](../appendix/b-references.md#2-deepseek-v2) and reused, with minor changes, in V3. The core idea: instead of caching per-head K and V tensors for inference, compress them into a single low-dimensional latent vector per token, and reconstruct K and V on the fly during attention.
 
-The forward path of an MLA block, abstracted:
+The forward path of an MLA block, abstracted. It follows the report's §2.1.1 equations; the dimensions are V3's.
 
 ```python
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
+def rotate(x: torch.Tensor, pos: torch.Tensor) -> torch.Tensor:
+    """Minimal RoPE on the last dimension of x: (B, T, ..., d), d even. pos: (T,)."""
+    d = x.shape[-1]
+    freqs = 1.0 / (10000 ** (torch.arange(0, d, 2, device=x.device) / d))
+    ang = pos[:, None].float() * freqs[None, :]            # (T, d/2)
+    ang = ang.view(1, x.shape[1], *([1] * (x.dim() - 3)), d // 2)
+    cos, sin = ang.cos(), ang.sin()
+    x1, x2 = x[..., 0::2], x[..., 1::2]
+    out = torch.stack((x1 * cos - x2 * sin, x1 * sin + x2 * cos), dim=-1)
+    return out.flatten(-2)
+
+
 class MultiHeadLatentAttention(nn.Module):
     """
-    Multi-head Latent Attention (MLA) — DeepSeek-V2/V3 design.
-    Compresses K and V into a single latent of size kv_latent_dim per token,
-    then decompresses per-head during attention. q_latent_dim controls the
-    size of the Q compression latent.
+    Multi-head Latent Attention (MLA), DeepSeek-V2/V3.
+
+    K and V for all heads are reconstructed from ONE latent per token (d_c = 512).
+    RoPE cannot pass through that compression, so position is carried by a separate
+    "decoupled" key of d_rope = 64 dims, shared by all heads. At inference only
+    the latent and the decoupled key are cached: 512 + 64 = 576 values per token
+    per layer. There is no KV-head grouping; every head gets its own K and V.
     """
-    def __init__(
-        self,
-        d_model: int = 7168,
-        n_heads: int = 128,
-        n_kv_heads: int = 4,         # GQA inside MLA — 4 KV heads, 128 Q heads
-        head_dim: int = 128,         # per-head dimension
-        kv_latent_dim: int = 512,    # the MLA KV compression
-        q_latent_dim: int = 1536,    # the MLA Q compression
-    ):
+    def __init__(self, d_model=7168, n_heads=128, head_dim=128,
+                 kv_latent_dim=512, q_latent_dim=1536, rope_dim=64):
         super().__init__()
-        self.n_heads = n_heads
-        self.n_kv_heads = n_kv_heads
-        self.head_dim = head_dim
-        
-        # Single down-projection: hidden -> a single shared latent for K and V.
+        self.h, self.dh, self.dr = n_heads, head_dim, rope_dim
+        # KV path: one down-projection to the latent (this is what is cached) ...
         self.kv_down = nn.Linear(d_model, kv_latent_dim, bias=False)
-        # Per-head K and V up-projections from the latent.
-        self.k_up = nn.Linear(kv_latent_dim, n_kv_heads * head_dim, bias=False)
-        self.v_up = nn.Linear(kv_latent_dim, n_kv_heads * head_dim, bias=False)
-        
-        # Q path: compress then decompress to per-head Q.
+        self.kv_norm = nn.RMSNorm(kv_latent_dim)
+        # ... and per-head up-projections from it, for the position-free part of K, and for V.
+        self.k_up = nn.Linear(kv_latent_dim, n_heads * head_dim, bias=False)
+        self.v_up = nn.Linear(kv_latent_dim, n_heads * head_dim, bias=False)
+        # Decoupled RoPE key: computed from the hidden state, shared across heads (also cached).
+        self.k_rope = nn.Linear(d_model, rope_dim, bias=False)
+        # Q path: compressed too, to save activation memory in training (not cached).
         self.q_down = nn.Linear(d_model, q_latent_dim, bias=False)
-        self.q_up = nn.Linear(q_latent_dim, n_heads * head_dim, bias=False)
-        
+        self.q_norm = nn.RMSNorm(q_latent_dim)
+        self.q_up = nn.Linear(q_latent_dim, n_heads * (head_dim + rope_dim), bias=False)
         self.o_proj = nn.Linear(n_heads * head_dim, d_model, bias=False)
-    
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         B, T, _ = x.shape
-        # Compress to the KV latent, then decompress to per-head K and V.
-        kv_latent = self.kv_down(x)                    # (B, T, kv_latent_dim)
-        k = self.k_up(kv_latent).view(B, T, self.n_kv_heads, self.head_dim)
-        v = self.v_up(kv_latent).view(B, T, self.n_kv_heads, self.head_dim)
-        # Q path.
-        q_latent = self.q_down(x)
-        q = self.q_up(q_latent).view(B, T, self.n_heads, self.head_dim)
-        # (B, T, n_heads, head_dim) -> (B, n_heads, T, head_dim)
-        q, k, v = (t.transpose(1, 2) for t in (q, k, v))
-        # Repeat KV heads to match Q heads (32x repeat: 4 -> 128).
-        repeat = self.n_heads // self.n_kv_heads
-        k = k.repeat_interleave(repeat, dim=1)
-        v = v.repeat_interleave(repeat, dim=1)
-        attn = F.scaled_dot_product_attention(q, k, v, is_causal=True)
-        attn = attn.transpose(1, 2).contiguous().view(B, T, self.n_heads * self.head_dim)
-        return self.o_proj(attn)
+        pos = torch.arange(T, device=x.device)
+        c_kv = self.kv_norm(self.kv_down(x))                              # (B, T, 512)  <- cached
+        k_r = rotate(self.k_rope(x), pos)                                 # (B, T, 64)   <- cached
+        k_c = self.k_up(c_kv).view(B, T, self.h, self.dh)
+        v = self.v_up(c_kv).view(B, T, self.h, self.dh)
+        q = self.q_up(self.q_norm(self.q_down(x))).view(B, T, self.h, self.dh + self.dr)
+        q_c, q_r = q.split([self.dh, self.dr], dim=-1)
+        q = torch.cat([q_c, rotate(q_r, pos)], dim=-1)
+        k = torch.cat([k_c, k_r[:, :, None, :].expand(B, T, self.h, self.dr)], dim=-1)
+        q, k, v = (t.transpose(1, 2) for t in (q, k, v))                  # (B, h, T, ·)
+        attn = F.scaled_dot_product_attention(q, k, v, is_causal=True)   # scale 1/sqrt(dh + dr)
+        return self.o_proj(attn.transpose(1, 2).reshape(B, T, self.h * self.dh))
 ```
 
 Two things to note in this code:
 
-1. The **KV cache size is `kv_latent_dim` per token** (512 floats = 1024 bytes), not `n_kv_heads * head_dim * 2` per token. For V3, the uncompressed KV cache would be `4 × 128 × 2 = 1024` floats per token. MLA gives a ~93% reduction. This is what makes serving a 671B model economically tractable.
-2. The **Q path also goes through a compression latent** (`q_latent_dim=1536`), decoded per-head. This adds a small compute cost but lets the Q representation share structure across heads.
+1. **The KV cache is the latent plus the decoupled key: 576 values per token per layer.** Standard MHA with the same 128 heads of dimension 128 would cache $2 \times 128 \times 128 = 32{,}768$, so MLA caches about 1.8% of it (our arithmetic; [fact sheet](../appendix/fact-sheets/deepseek-v3.md#architecture)). This is what makes serving a 671B model economically tractable. The decoupled key exists because RoPE's position-dependent rotation would otherwise sit between the query and the up-projection $W^{UK}$, blocking the trick below.
+2. **The Q path also goes through a compression latent** (1536). It is not cached; the report motivates it as reducing activation memory during training.
 
-In the real V3 implementation, the K and V up-projections are **absorbed** into the attention computation: the attention is computed as `softmax(Q (W_UK c_kv)^T / sqrt(d)) (W_UV c_kv)`, where `c_kv` is the latent. This avoids ever writing per-head K and V to HBM, saving memory and bandwidth. The `k_up` and `v_up` matrices are stored but their products are never materialized.
+In an optimized V3 implementation, the K and V up-projections can be **absorbed** into the query and output projections, so attention runs directly against the cached latent and the per-head K and V are never materialized. That absorption is possible for the position-free part of K precisely because position lives in the separate RoPE key.
 
 ### 10.4.2 DeepSeekMoE
 
-The FFN block of every layer except the first is a **Mixture-of-Experts** layer using the DeepSeekMoE design from V2 [\[2\]](../appendix/b-references.md#2-deepseek-v2):
+The FFN block of every layer except the first three is a **Mixture-of-Experts** layer using the DeepSeekMoE design from V2 [\[2\]](../appendix/b-references.md#2-deepseek-v2):
 
 - **256 routed experts**, each a small SwiGLU FFN (`up`, `gate`, `down` projections of size `2048` intermediate, `7168` hidden).
 - **1 shared expert**, also a SwiGLU FFN, that every token passes through.
 - **Top-8 routing**: each token is routed to its 8 highest-scoring experts.
-- **Auxiliary-loss-free load balancing** via per-expert bias terms (see §10.6).
+- **Sigmoid gating**: affinity scores are sigmoids, and the gating weights are the scores of the 8 chosen experts, normalized to sum to 1.
+- **Auxiliary-loss-free load balancing** via per-expert bias terms that affect only *which* experts are chosen (see §10.6).
 
 A minimal DeepSeekMoE block:
 
@@ -214,11 +221,13 @@ class DeepSeekMoE(nn.Module):
         ])
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        scores = self.gate(x)                       # (B, T, n_routed_experts)
-        # CRITICAL: bias is added before top-k.
-        scores = scores + self.expert_bias
-        topk_scores, topk_indices = scores.topk(self.top_k, dim=-1)
-        topk_weights = torch.sigmoid(topk_scores)    # sigmoid gating, not softmax
+        scores = torch.sigmoid(self.gate(x))        # (B, T, n_routed) affinities, sigmoid not softmax
+        # CRITICAL: the bias changes WHICH experts are chosen ...
+        _, topk_indices = (scores + self.expert_bias).topk(self.top_k, dim=-1)
+        # ... but not HOW MUCH they are weighted: gating uses the original scores,
+        # normalized over the chosen k.
+        topk_scores = scores.gather(-1, topk_indices)
+        topk_weights = topk_scores / topk_scores.sum(dim=-1, keepdim=True)
         
         # Naive per-expert dispatch. In real V3, this is an all-to-all + grouped GEMM.
         out = torch.zeros_like(x)
@@ -246,33 +255,32 @@ class SwiGLUExpert(nn.Module):
         return self.down_proj(F.silu(self.gate_proj(x)) * self.up_proj(x))
 ```
 
-The critical line is `scores = scores + self.expert_bias`. The bias is **added to the routing scores before the top-k selection**, directly influencing which experts are picked. The bias is *not* trained by gradient descent; it is updated by a separate rule based on running expert-load statistics. We explain the mechanism in §10.6.
+The critical lines are the two around the bias. The bias is **added to the scores only for the top-k selection**, so it steers which experts are picked. The report is explicit that the gating value multiplied into the expert output "is still derived from the original affinity score" ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#architecture)). If the bias leaked into the weights, the balancer would distort every token's output, not just its routing. The bias is *not* trained by gradient descent; it is updated by a separate rule based on running expert-load statistics. We explain the mechanism in §10.6.
 
 In the real V3, the per-expert FFNs are stored as **block-sparse 3D tensors** of shape `(n_experts, hidden_dim, intermediate_dim)`, and the dispatch is a **grouped GEMM** that takes a sorted list of `(token, expert)` pairs and runs all expert computations in one kernel. We cover this in Chapter 6 and Chapter 20.
 
 ### 10.4.3 First-K-dense, MoE-later
 
-The report describes a structural choice the team found important: the **first transformer layer is dense**, not MoE. The reasoning is that the first layer is doing shallow pattern matching (BPE merging, surface features) where dense routing is better; MoE routing is more useful in deeper layers where the representations are more abstract. The exact number of dense layers is not published, but later presentations suggest 1. This "first-K-dense, rest-MoE" pattern is now used in Qwen3 and other MoE models — a small detail with a noticeable quality impact.
+The **first three layers are dense**; the report says it substitutes "all FFNs except for the first three layers with MoE layers", and the config's `first_k_dense_replace` is 3 ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#architecture)). Their dense FFNs are wide (intermediate size 18,432). The report does not give a reason. A common interpretation, which is ours and not DeepSeek's, is that routing is least useful in the earliest layers, where representations are closest to the token embeddings and the router has little to specialize on.
 
 ## 10.5 Multi-token prediction (MTP)
 
-Standard next-token prediction trains the model to predict $p(x_t \mid x_{<t})$. DeepSeek-V3 additionally trains the model to predict the next *k* tokens — specifically, the next 1 token at the main head and an additional token at each of **k MTP heads** (the report uses k=1, so a total of 2 predicted tokens per position) [\[1\]](../appendix/b-references.md#1-deepseek-v3).
+Standard next-token prediction trains the model to predict $p(x_{t+1} \mid x_{\le t})$. DeepSeek-V3 additionally predicts **one more token** at each position (MTP depth $D = 1$) [\[1\]](../appendix/b-references.md#1-deepseek-v3). The report credits the idea to Gloeckle et al. (2024) and changes how it is done ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#architecture)).
 
-The MTP mechanism, in words:
+The mechanism, in words:
 
-- At each position $t$, the model produces a hidden state $h_t$.
-- The main next-token head reads $h_t$ and predicts $x_{t+1}$.
-- A second MTP head reads $h_t$ and predicts $x_{t+2}$, using a small additional projection layer.
-- The MTP loss term is added to the main loss with a weight (the report uses $\lambda = 0.3$ for the auxiliary MTP loss).
-- The MTP head is **discarded at inference time**. Only the main next-token head is used. MTP is a training-time regularizer and a denser training signal, not a serving-time feature.
+- The main model produces a hidden state $h_t$ at each position and predicts $x_{t+1}$ as usual.
+- The **MTP module** takes $h_t$, combines it with the *embedding of the true next token* $x_{t+1}$ through a projection, runs the result through **one full Transformer block**, and predicts $x_{t+2}$ with the shared output head. The embedding and output head are shared with the main model.
+- Because the module sees $x_{t+1}$ before predicting $x_{t+2}$, the prediction keeps the full causal chain. Gloeckle et al. instead predict all future tokens independently from the same state, with parallel heads.
+- The MTP loss is added with weight $\lambda$: **0.3 for the first 10T tokens, then 0.1** for the remaining 4.8T.
+- The module is not small. It holds **14B parameters**; the released checkpoint is 685B = 671B main model + 14B MTP. Most of that is its block's MoE FFN.
+- At inference the module can simply be **discarded**, and the main model runs unchanged. It can also be **repurposed for speculative decoding**: DeepSeek report 85–90% acceptance for the second token and 1.8× tokens per second.
 
-Why MTP helps:
+Why MTP helps, per the report and as commonly understood:
 
-1. **Denser signal per position.** Each position now contributes to two loss terms instead of one. This is a small but real increase in the gradient per token.
-2. **Better representation learning for planning.** To predict $x_{t+2}$, the model must encode some notion of "what comes after the next token." This pushes the hidden states to be more predictive of multi-step structure, which is useful for reasoning, code, and long-form generation.
-3. **Data efficiency.** Empirically, the DeepSeek team reports that MTP improves data efficiency: the model reaches a given loss with fewer tokens, or equivalently reaches a lower loss at the same token count.
-
-The DPO signal is a more recent extension: the MTP head's outputs can be used to provide a denser preference signal for DPO post-training, since the MTP head is essentially a "what the model would say next" predictor. The DeepSeek-R1 paper [\[10\]](../appendix/b-references.md#10-deepseek-r1) builds on this — R1's reasoning traces are, in effect, an MTP-style rollout. We discuss this in Chapter 19.
+1. **Denser signal per position.** Each position contributes to two loss terms instead of one.
+2. **Pre-planning.** To predict $x_{t+2}$, the representation at $t$ must encode something about what follows the next token. The report's phrase is that MTP "may enable the model to pre-plan its representations".
+3. **A free draft model.** The speculative-decoding use comes at no extra training cost, because the module was trained alongside the main model.
 
 ## 10.6 Auxiliary-loss-free load balancing
 
@@ -284,7 +292,7 @@ $$
 
 where $f_e$ is the fraction of tokens routed to expert $e$ in the current batch, $p_e$ is the average routing probability for expert $e$, and $\alpha$ is a coefficient (typically 0.01). The auxiliary loss is minimized when the experts are uniformly loaded, but it directly *hurts* the main loss — the model is paying a price for balance.
 
-DeepSeek-V3's contribution is to **remove the auxiliary loss** and instead use a **bias term** on the routing scores [\[1\]](../appendix/b-references.md#1-deepseek-v3). The mechanism:
+DeepSeek-V3's contribution is to **replace the auxiliary loss as the main balancer** with a **bias term** on the routing scores [\[1\]](../appendix/b-references.md#1-deepseek-v3). A complementary *sequence-wise* balance loss remains, with a very small weight (0.0001), only "to avoid extreme imbalance within any single sequence" ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#architecture)). The mechanism:
 
 - For each expert $e$, maintain a bias $b_e$ (initialized to 0).
 - During the forward pass, the routing score for expert $e$ is `s_e + b_e`, where `s_e` is the router's output.
@@ -551,7 +559,7 @@ Four specific contributions, each of which has propagated through the field [\[1
 
 2. **Auxiliary-loss-free MoE load balancing.** The bias-based mechanism is a clean alternative to the standard auxiliary loss. The argument — that the auxiliary loss directly competes with the main loss, while the bias-based mechanism does not — is theoretically and empirically supported. The mechanism is now used in Qwen3, in the Mistral large model, and in several other MoE designs.
 
-3. **Multi-token prediction (MTP).** The 2-token prediction head is a small but real training-time regularizer. The R1 distillation pipeline reuses the MTP mechanism to produce reasoning traces, which is the more impactful extension.
+3. **Multi-token prediction (MTP).** A sequential MTP module (14B parameters, one Transformer block) adds a second-token objective during training, and the same module doubles as a speculative-decoding draft at inference (1.8× tokens per second in the report).
 
 4. **DualPipe.** The pipeline schedule that overlaps MoE all-to-all with attention compute. The open-source release is partial, but the design has been studied and partially adopted by other labs running large MoE models.
 
@@ -576,7 +584,7 @@ A reader who is trying to *reproduce* V3 has, as of early 2026, a clear architec
 ## 10.15 What you should take from this chapter
 
 1. **V3 is a coherent end-to-end demonstration, not a single trick.** FP8 + auxiliary-loss-free MoE + MTP + DualPipe + 14.8T tokens of bilingual data, all composed. Each piece is reproducible in isolation; the composition is what is hard.
-2. **The architecture is the MLA + DeepSeekMoE + MTP stack.** The numbers — 671B / 37B active, 60 layers, 256 routed + 1 shared expert, kv_latent=512, q_latent=1536, hidden=7168 — are the headline. The MLA absorbs the K and V projections to keep KV cache small; the MoE sharding keeps the per-GPU compute bounded; the MTP provides a denser training signal.
+2. **The architecture is the MLA + DeepSeekMoE + MTP stack.** The numbers — 671B / 37B active, 61 layers (3 dense), 256 routed + 1 shared expert, kv_latent=512, q_latent=1536, a 64-d decoupled RoPE key, hidden=7168 — are the headline ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#architecture)). MLA caches 576 values per token per layer instead of per-head K and V; the MoE sharding keeps the per-GPU compute bounded; the MTP provides a denser training signal.
 3. **The FP8 is the practical contribution.** Per-block scaling, E4M3 / E5M2 split, custom CUTLASS / Triton kernels. This is the engineering substrate that makes the rest affordable.
 4. **The distributed system breaks a rule on purpose.** 16-way PP, 64-way EP across 8 nodes, ZeRO-1 DP, no TP. The cross-node all-to-all is paid for by DualPipe overlap, a 4-node routing limit and custom kernels ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#parallelism-layout)). The pieces are standard; the composition, and the co-design that makes it work, are V3's.
 5. **The cost claim is narrow and correct.** $5.5M for one successful pre-training run at rental rates. Not the cost to reproduce; not the cost to own the cluster; not the total engineering cost.

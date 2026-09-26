@@ -42,7 +42,18 @@ Checked against the source: 2026-09-26.
 | Experts per MoE layer | 1 shared + 256 routed | [V3] §4.2 |
 | Expert intermediate dimension | 2,048 | [V3] §4.2 |
 | Routed experts per token | 8 | [V3] §4.2 |
+| MLA values cached per token per layer | 576: the joint KV latent $c^{KV}$ (512) plus the decoupled RoPE key $k^R$ (64), shared across all 128 heads. There is no KV-head grouping | [V3] §2.1.1, §4.2 |
+| Uncompressed equivalent, for scale | 2 × 128 heads × 128 = 32,768 values per token per layer, so MLA caches ~1.8% of it (our arithmetic) | [V3] §4.2 |
+| Gating | Sigmoid affinity scores; the per-expert balancing bias is added **only to choose the top-8**; gating weights are the original scores, normalized over the 8 selected | [V3] §2.1.2 |
+| Balance losses | Auxiliary-loss-free bias balancing, plus a complementary sequence-wise balance loss with a very small weight (α = 0.0001) | [V3] §2.1.2, §4.2 |
+| Bias update speed γ | 0.001 for the first 14.3T tokens, 0.0 for the last 500B | [V3] §4.2 |
 | Multi-token prediction depth | 1 (one additional token) | [V3] §2.2, §4.2 |
+| MTP module structure | Sequential: shared embedding, shared output head, one full Transformer block, and a projection that combines the main model's state at $t$ with the embedding of token $t+1$ | [V3] §2.2 |
+| MTP module size | 14B parameters (checkpoint 685B = 671B main model + 14B MTP) | `README.md` @e815299 |
+| MTP loss weight λ | 0.3 for the first 10T tokens, then 0.1 for the remaining 4.8T | [V3] §4.2 |
+| MTP at inference | Can be discarded; or repurposed for speculative decoding: second-token acceptance 85–90%, 1.8× tokens per second | [V3] §2.2, §5.4.3 |
+| MTP origin | "Inspired by Gloeckle et al. (2024)"; V3 did not introduce MTP | [V3] §2.2 |
+| Published config | `num_hidden_layers` 61, `first_k_dense_replace` 3, `kv_lora_rank` 512, `qk_rope_head_dim` 64, `num_nextn_predict_layers` 1, dense `intermediate_size` 18,432 | `config.json` @e815299 |
 | Parameters | 671B total, 37B activated per token | [V3] §4.2 |
 
 ## Precision

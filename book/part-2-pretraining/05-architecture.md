@@ -646,15 +646,15 @@ The common thread: fine-grained experts ($E \geq 16$), top-$k$ with $k \geq 2$, 
 
 The standard training objective is next-token prediction: at each position $t$, predict the token at $t+1$. The loss is the cross-entropy of the predicted distribution against the true token.
 
-**Multi-Token Prediction (MTP)**, introduced in DeepSeek-V3 [\[1\]](../appendix/b-references.md#1-deepseek-v3), extends this to predicting the next $D$ tokens at each position. The model has $D$ additional output heads, each predicting the token at $t+1, t+2, \ldots, t+D$. The total loss is the sum of the $D$ cross-entropies, scaled by a small weight per head.
+**Multi-Token Prediction (MTP)**, proposed by Gloeckle et al. (2024) and adopted at frontier scale in DeepSeek-V3 [\[1\]](../appendix/b-references.md#1-deepseek-v3), extends this to predicting several future tokens at each position. In Gloeckle et al.'s form, the model has $D$ additional output heads on a shared trunk, predicting the tokens at $t+2, \ldots, t+D+1$ in parallel. The total loss is the sum of the $D$ cross-entropies, scaled by a small weight per head.
 
 The intuition:
 
 - The main next-token prediction is "easy" in the sense that the model can use a lot of local context. Predicting the second, third, and fourth next tokens forces the model to maintain a richer internal representation of the upcoming sequence.
-- The additional heads are cheap — each is a single linear layer. The main cost is the extra forward pass through the shared trunk.
-- At inference, only the first head is used; the rest are discarded. So MTP is a training-time-only change.
+- The heads can be cheap or not. In the simplest form each is one output layer; Gloeckle et al. use a transformer layer per head. DeepSeek-V3's single MTP module is a full Transformer block with an MoE FFN, **14B parameters** ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#architecture)).
+- At inference the extra heads can be discarded, making MTP a training-time change, or kept as a built-in draft for speculative decoding.
 
-The DeepSeek-V3 report claims MTP improves benchmark performance by 1–2% on most evals at negligible training cost. The MTP heads also serve a role in speculative decoding: the second-next-token prediction can be used as a draft model for the main model, accelerating inference by 1.5–2x.
+DeepSeek-V3 differs from the parallel-heads form in one important way. Its MTP module is **sequential**: to predict $t+2$ it combines the main model's state at $t$ with the embedding of the true token $t+1$, which keeps the causal chain. Its report shows gains from MTP in ablations at two scales, and 85–90% second-token acceptance with **1.8× tokens per second** when the module is used for speculative decoding.
 
 The MTP loss in code:
 
@@ -697,7 +697,7 @@ def mtp_loss(
     return main_loss + mtp_weight * mtp_loss_total
 ```
 
-A common configuration in DeepSeek-V3: $D = 1$ extra head (predicting the second-next token), MTP weight 0.3. Some other implementations use $D = 3$ with lower per-head weights.
+The code above is the simple parallel-heads form. DeepSeek-V3 uses depth $D = 1$ with a sequential module rather than an independent head, and an MTP weight of 0.3 for the first 10T tokens and 0.1 after ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#architecture)).
 
 ## 5.13 Long-context extensions
 
@@ -735,15 +735,15 @@ Let us put it all together with the actual configurations of the four case-study
 From the V3 technical report [\[1\]](../appendix/b-references.md#1-deepseek-v3):
 
 - **Total parameters**: 671B. **Active per token**: 37B.
-- **Layers**: 60.
+- **Layers**: 61; the first 3 have dense FFNs, the other 58 are MoE.
 - **Hidden dim**: 7168.
-- **Attention**: MLA with $d_c = 512$ (KV latent), $d_c' = 1536$ (Q latent), 128 attention heads, head dim 128. Per-layer KV cache per token: $2 \cdot d_c = 1024$ numbers.
+- **Attention**: MLA with $d_c = 512$ (KV latent), $d_c' = 1536$ (Q latent), 128 attention heads, head dim 128, and a 64-dimensional decoupled RoPE key. Per-layer KV cache per token: $d_c + d_h^R = 512 + 64 = 576$ numbers.
 - **MoE**: 256 routed experts, 1 shared expert, top-8 routing. Each expert: $d_\text{ff} = 2048$. Bias-based auxiliary-loss-free balancing.
-- **MTP**: 1 extra prediction head, weight 0.3.
+- **MTP**: depth 1, as a sequential module (one Transformer block, 14B parameters); loss weight 0.3, then 0.1.
 - **Context**: trained at 4K, extended to 128K via YaRN.
 - **Precision**: FP8 (E4M3 for forward/weight gradients, E5M2 for activation gradients), with BF16 retained for embedding and final output.
 
-The MLA cache size: $60 \text{ layers} \cdot 1024 \text{ numbers} \cdot 2 \text{ bytes (BF16)} \cdot 128K \text{ tokens} \approx 15 \text{ GB}$ per sequence. For comparison, the equivalent GQA at 8 KV heads would be $60 \cdot 2 \cdot 8 \cdot 128 \cdot 2 \cdot 128K \approx 30 \text{ GB}$ per sequence — a 2x difference, and a much larger difference if the GQA ratio were 1:1 (MHA) instead of 8:1.
+The MLA cache size: $61 \text{ layers} \cdot 576 \text{ numbers} \cdot 2 \text{ bytes (BF16)} \cdot 131{,}072 \text{ tokens} \approx 9.2 \text{ GB}$ per 128K-token sequence. For comparison, GQA at 8 KV heads on the same model would be $61 \cdot 2 \cdot 8 \cdot 128 \cdot 2 \cdot 131{,}072 \approx 33 \text{ GB}$, 3.6× more. Full MHA over all 128 heads would be about 524 GB, roughly 57× more ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#architecture)).
 
 ### 5.14.2 Llama-3-70B
 
@@ -819,7 +819,7 @@ The frontier is converging on: MLA or GQA for attention, RoPE for position, RMSN
 3. **RoPE has won the position-encoding war.** The relative-position inductive bias, the multi-scale frequency structure, and the ease of extension (linear, NTK, YaRN) make it the default.
 4. **RMSNorm and SwiGLU are the modern defaults.** LayerNorm and GeLU survive in older checkpoints; new models use RMSNorm and SwiGLU. The quality wins are small but consistent, and the compute wins are non-trivial.
 5. **MoE dominates for serving.** Fine-grained experts + a shared expert + bias-based auxiliary-loss-free balancing is the current frontier pattern (DeepSeekMoE). Standard top-$k$ with auxiliary loss is the simpler alternative (Mixtral). Both are deployed at scale.
-6. **MTP is a near-free quality win.** One extra prediction head, 1–2% on most evals, zero inference cost. Adopt unless you have a specific reason not to.
+6. **MTP is a cheap-to-run quality win with a serving bonus.** DeepSeek-V3's single sequential MTP module improved its ablations and, kept at inference, gave 1.8× decoding speed as a speculative draft. It is not free in parameters (14B in V3), but it can be discarded after training.
 7. **Long context is solved with YaRN, mostly.** For up to 128K, RoPE scaling + a few hundred fine-tune steps is the standard recipe. Beyond that, you need hybrid attention patterns and a separate long-context training stage.
 
 The next chapter covers distributed training — the systems side of taking any of these architectures and training it on 2,000+ GPUs.
