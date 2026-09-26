@@ -577,7 +577,7 @@ The next chapter covers the cluster reality: the actual hardware, the InfiniBand
 
 **References for this chapter**
 
-- [\[1\] DeepSeek-V3 Technical Report](../appendix/b-references.md#1-deepseek-v3) — DeepSeek-AI, December 2024. The 671B MoE with 4-way PP × 8-way EP × 64-way DP on 2,048 H800s, with the DualPipe schedule.
+- [\[1\] DeepSeek-V3 Technical Report](../appendix/b-references.md#1-deepseek-v3) — DeepSeek-AI, December 2024. The 671B MoE with 16-way PP × 64-way EP (across 8 nodes) × ZeRO-1 DP, no TP × 64-way DP on 2,048 H800s, with the DualPipe schedule.
 - [\[3\] Megatron-LM](../appendix/b-references.md#3-megatron-lm) — Shoeybi et al., 2019. The original 3D parallelism paper; the basis for TP, PP, and the 1F1B schedule.
 - [\[5\] Llama 3 Herd of Models](../appendix/b-references.md#5-llama-3) — Meta AI, July 2024. The 16K-GPU FSDP-based training, with the TP=8 × PP=16 × DP=128 configuration.
 - [\[17\] ZeRO](../appendix/b-references.md#17-zero) — Rajbhandari et al., SC20. The sharded data-parallel paper; the basis for DeepSpeed and the conceptual foundation for FSDP.

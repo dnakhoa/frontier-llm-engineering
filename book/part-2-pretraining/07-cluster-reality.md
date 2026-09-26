@@ -28,11 +28,11 @@ A frontier cluster is a hierarchy, and at every level of the hierarchy the bandw
 
 **The data center.** A cluster typically lives in a single data center, with its own substation, its own cooling plant, and its own network connection to the rest of the world. Larger labs have multiple data centers and stitch them together with long-haul fiber, but most pre-training runs are run inside a single data center because the latency between data centers is too high for synchronous collective communication.
 
-The DeepSeek-V3 paper's hardware block is the cleanest public description of this hierarchy for a frontier run [\[1\]](../appendix/b-references.md#1-deepseek-v3):
+The DeepSeek-V3 paper's hardware description is short, and typical of what frontier runs publish [\[1\]](../appendix/b-references.md#1-deepseek-v3):
 
-> *"Training is conducted on a cluster of 2048 NVIDIA H800 GPUs. Each node contains 8 GPUs connected via NVLink and NVSwitch within the node, with a total of 900 GB/s NVLink bandwidth per GPU. The 256 nodes are connected via InfiniBand, with each GPU having a 400 Gb/s NIC."*
+> *"DeepSeek-V3 is trained on a cluster equipped with 2048 NVIDIA H800 GPUs. Each node in the H800 cluster contains 8 GPUs connected by NVLink and NVSwitch within nodes."* (§3.1)
 
-That paragraph is the entire physical description of the cluster in the paper, and it is also the entire physical description most frontier runs bother to publish. Everything else in this chapter is the part that does not get published.
+The report's one other hardware number, in §3.2.2, is the one that matters: on this cluster, NVLink offers **160 GB/s**, about **3.2×** InfiniBand's 50 GB/s ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#cluster-and-interconnect)). The H800 is an export-compliant H100 with cut-down NVLink, so the intra/inter-node gap is far smaller than the ~18× of the H100 figures below. Everything else in this chapter is the part that does not get published.
 
 ## 7.3 The network topology
 
@@ -517,7 +517,7 @@ The dollar number is the constraint that bounds everything else.
 - Direct purchase of H100: ~$30,000–$40,000 per GPU. At a 3-year amortization and 80% utilization, per-GPU-hour: ~$1.40.
 - xAI Colossus: not publicly priced, but the $6B funding round and the 100k H100 build suggest a per-GPU-hour in the $1.50–$2.50 range for the compute itself, plus power, cooling, and operations.
 
-The DeepSeek-V3 paper reports 2,788K H800-hours for 2 months of training [\[1\]](../appendix/b-references.md#1-deepseek-v3). At $1.50/H800-hour (the H800 is a slightly cheaper China-export-compliant variant of the H100), that is ~$5.5M. The Llama-3 405B training cost is reported at "tens of millions of dollars" of compute, with the 16,000 H100 cluster running for ~50 days; the per-GPU-hour implied is in the same $1–$3 range. Anthropic's Project Rainier is reportedly a >$10B multi-year commitment, spread over hundreds of thousands of Trainium 2 chips [\[41\]](../appendix/b-references.md#41-aws-trainium-2--project-rainier).
+The DeepSeek-V3 paper reports 2,788K H800 GPU-hours for its full training, of which 2,664K was pre-training that took "less than two months" [\[1\]](../appendix/b-references.md#1-deepseek-v3). At the report's assumed $2 per GPU-hour, that is $5.576M ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#context-extension-post-training-and-cost)). The Llama-3 405B training cost is reported at "tens of millions of dollars" of compute, with the 16,000 H100 cluster running for ~50 days; the per-GPU-hour implied is in the same $1–$3 range. Anthropic's Project Rainier is reportedly a >$10B multi-year commitment, spread over hundreds of thousands of Trainium 2 chips [\[41\]](../appendix/b-references.md#41-aws-trainium-2--project-rainier).
 
 **Cluster utilization.** The fraction of the time the cluster is doing useful work, as opposed to being broken, idle, or running overhead. Frontier numbers:
 

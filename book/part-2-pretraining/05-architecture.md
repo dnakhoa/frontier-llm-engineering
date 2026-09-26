@@ -741,7 +741,7 @@ From the V3 technical report [\[1\]](../appendix/b-references.md#1-deepseek-v3):
 - **MoE**: 256 routed experts, 1 shared expert, top-8 routing. Each expert: $d_\text{ff} = 2048$. Bias-based auxiliary-loss-free balancing.
 - **MTP**: depth 1, as a sequential module (one Transformer block, 14B parameters); loss weight 0.3, then 0.1.
 - **Context**: trained at 4K, extended to 128K via YaRN.
-- **Precision**: FP8 (E4M3 for forward/weight gradients, E5M2 for activation gradients), with BF16 retained for embedding and final output.
+- **Precision**: FP8 E4M3 on all tensors for the linear-layer GEMMs, with fine-grained scaling; BF16/FP32 retained for the embedding, output head, gating, norms and attention ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#precision)).
 
 The MLA cache size: $61 \text{ layers} \cdot 576 \text{ numbers} \cdot 2 \text{ bytes (BF16)} \cdot 131{,}072 \text{ tokens} \approx 9.2 \text{ GB}$ per 128K-token sequence. For comparison, GQA at 8 KV heads on the same model would be $61 \cdot 2 \cdot 8 \cdot 128 \cdot 2 \cdot 131{,}072 \approx 33 \text{ GB}$, 3.6× more. Full MHA over all 128 heads would be about 524 GB, roughly 57× more ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#architecture)).
 

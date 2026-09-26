@@ -28,6 +28,17 @@ Checked against the source: 2026-09-26.
 | Implied data-parallel degree | 2,048 / 16 = 128 ranks per pipeline stage. This is our arithmetic; the report does not state the DP degree | [V3] §3.1, §3.2 |
 | Inference layout (prefill), for contrast | Attention TP4 + SP with DP8; MoE EP32; minimum unit 4 nodes / 32 GPUs | [V3] §3.4.1 |
 
+## Data and tokenizer
+
+| Fact | Value | Source |
+|---|---|---|
+| What changed from V2 | Higher ratio of math and programming samples; multilingual coverage expanded beyond English and Chinese; pipeline refined to minimize redundancy | [V3] §4.1 |
+| Corpus size | 14.8T tokens | [V3] §4.1 |
+| Packing | Document packing, without cross-sample attention masking | [V3] §4.1 |
+| Fill-in-the-middle | Prefix-Suffix-Middle (PSM) format at a rate of 0.1 | [V3] §4.1 |
+| Mix ratios, classifier, dedup method, thresholds | Not published; the report gives none of them | [V3] §4.1 |
+| Tokenizer | Byte-level BPE, 128K vocabulary; pre-tokenizer and training data "modified to optimize multilingual compression efficiency"; the published file is on the [tokenizer sheet](tokenizers.md#deepseek-v3) | [V3] §4.1 |
+
 ## Architecture
 
 | Fact | Value | Source |
@@ -79,16 +90,21 @@ Checked against the source: 2026-09-26.
 | Learning-rate schedule | Constant 2.2×10⁻⁴ until 10T tokens; cosine decay to 2.2×10⁻⁵ over the next 4.3T; then constant 2.2×10⁻⁵ for 333B tokens and 7.3×10⁻⁶ for the final 167B (10T + 4.3T + 0.5T = 14.8T) | [V3] §4.2 |
 | Batch size | Ramped from 3,072 to 15,360 over the first 469B tokens, then 15,360 | [V3] §4.2 |
 | Gradient clipping | Norm 1.0 | [V3] §4.2 |
-| Stability | No irrecoverable loss spikes and no rollbacks in the whole run | [V3] §1 |
+| Stability | No irrecoverable loss spikes and no rollbacks in the whole run. The report publishes no loss-spike policy and no main-run loss curve | [V3] §1 |
+| FP8 vs BF16 validation | Relative loss error of FP8 below 0.25% vs a BF16 baseline, at two smaller scales (~16B and ~230B MoE) over ~1T tokens; curves in Figure 10 | [V3] §3.3, Appendix B.1 |
 
 ## Context extension, post-training and cost
 
 | Fact | Value | Source |
 |---|---|---|
 | Context extension | Two stages: 4K → 32K → 128K | [V3] §1, §4.3 |
+| SFT data | 1.5M instances. Reasoning data generated with an internal DeepSeek-R1 model via domain expert models and rejection sampling; non-reasoning data from DeepSeek-V2.5, verified by human annotators | [V3] §5.1 |
+| SFT settings | 2 epochs, cosine-decayed learning rate, packed samples with sample masking | [V3] §5.1 |
+| Reward models | Rule-based where answers can be verified; a model-based RM trained from the DeepSeek-V3 SFT checkpoints otherwise | [V3] §5.2.1 |
 | Post-training RL algorithm | GRPO | [V3] §5.2.2 |
 | Distillation direction | Reasoning capability distilled **from** DeepSeek-R1-series models **into** V3 | [V3] §1, §5.4.1 |
 | GPU-hours: pre-training | 2,664K H800 GPU-hours | [V3] Table 1 |
 | GPU-hours: context extension | 119K | [V3] Table 1 |
 | GPU-hours: post-training | 5K | [V3] Table 1 |
 | GPU-hours: total | 2,788K, covering all three stages, at an assumed $2/GPU-hour = $5.576M; excludes prior research and ablations | [V3] Table 1, §1 |
+| Pre-training wall-clock | "less than two months"; 180K GPU-hours per trillion tokens, i.e. 3.7 days per trillion on 2,048 GPUs | [V3] §1 |

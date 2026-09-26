@@ -72,7 +72,7 @@ The value of academic text is that it is dense, well-written, and contains reaso
 
 ### 3.2.5 Multilingual text
 
-Frontier models are increasingly multilingual. The Qwen models are particularly strong on Chinese; DeepSeek-V3 is heavily bilingual (English + Chinese). Llama-3 supports 8 languages. The data pipeline has language identification at multiple stages.
+Frontier models are increasingly multilingual. The Qwen models are particularly strong on Chinese; DeepSeek-V3's report says its corpus expands multilingual coverage beyond English and Chinese, without publishing a language breakdown ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#data-and-tokenizer)). Llama-3 supports 8 languages. The data pipeline has language identification at multiple stages.
 
 Multilingual sources include:
 - **mC4** (multilingual C4) — a Common Crawl-derived multilingual corpus.
@@ -81,7 +81,7 @@ Multilingual sources include:
 - **Country-specific crawls** (e.g., Chinese web via a different Common Crawl mirror).
 - **Native-language code repositories** (Chinese GitHub, Japanese Qiita).
 
-The data mix is heavily English-weighted even at multilingual-focused labs. DeepSeek-V3's reported mix is roughly 60% English, 30% Chinese, 10% other. Qwen3 is closer to 50/50 English/Chinese. The exact ratios are trade secrets; what is published is the directional split.
+The data mix is heavily English-weighted even at multilingual-focused labs. DeepSeek-V3 publishes no language ratios at all. Qwen3 is closer to 50/50 English/Chinese. The exact ratios are trade secrets; what is published is the directional split.
 
 ### 3.2.6 Math, instruction data, and synthetic data
 
@@ -110,7 +110,7 @@ Key challenges:
 
 **PDF extraction.** For papers, books, and reports. Tools like `pdftotext` (poppler), `pdfplumber`, `grobid` (for academic PDFs), and modern learned extractors (Nougat, Marker) turn PDFs into structured text. The output quality varies wildly: a clean arXiv paper is easy; a scanned book from 1920 is hard.
 
-The DeepSeek-V3 paper mentions that PDF extraction for academic content was done with a custom pipeline. The Qwen3 paper similarly references custom PDF handling. This is not surprising — extraction quality is a competitive differentiator.
+The Qwen3 paper similarly references custom PDF handling. This is not surprising — extraction quality is a competitive differentiator.
 
 **WARC parsing.** Common Crawl comes in WARC format. Parsing a 300 TiB WARC into individual HTML files is a Hadoop/Spark job in its own right.
 
@@ -147,7 +147,7 @@ A common approach:
 
 The classifier is itself trained on outputs from a strong model, which was trained on previous data. This circularity is fine in practice because the strong model has absorbed most of the same quality signal.
 
-The Llama-2 paper introduced a particularly influential approach: train a quality classifier on data labeled by Llama-2 itself, then use it to filter the pre-training corpus. DeepSeek-V3 and Qwen3 use similar approaches.
+The Llama-2 paper introduced a particularly influential approach: train a quality classifier on data labeled by Llama-2 itself, then use it to filter the pre-training corpus. DeepSeek-V3's report does not describe its quality filtering.
 
 **A worked example.** A real (simplified) quality classifier:
 
@@ -197,9 +197,9 @@ The standard approach:
 3. Within each bucket, compute exact similarity (or Jaccard on the original sets).
 4. Keep one document per cluster of near-duplicates.
 
-This is the basis of the `datasketch` library, and most frontier pipelines have a custom version. The DeepSeek-V3 paper references a custom dedup pipeline; the Llama-3 paper uses a similar approach.
+This is the basis of the `datasketch` library, and most frontier pipelines have a custom version. The DeepSeek-V3 paper says only that its pipeline was "refined to minimize redundancy"; the Llama-3 paper describes its approach in detail.
 
-The threshold is tunable. Llama-2 used a Jaccard threshold of 0.8; DeepSeek-V3 uses a similar range. Lower threshold = more aggressive dedup = less duplication but more risk of dropping legitimately similar documents (e.g., news reports on the same event).
+The threshold is tunable. Llama-2 used a Jaccard threshold of 0.8; DeepSeek-V3 does not publish one. Lower threshold = more aggressive dedup = less duplication but more risk of dropping legitimately similar documents (e.g., news reports on the same event).
 
 **Paragraph-level and sentence-level dedup.** Catches cases where a document is mostly unique but has a large chunk copied from elsewhere. Implemented with suffix arrays or suffix trees on the token stream.
 
@@ -285,7 +285,7 @@ The mix is tuned to:
 - **Match the evaluation distribution.** If most evals are in English, upweight English.
 - **Match the perceived deficits of previous models.** If a previous version was bad at math, upweight math.
 
-The mix is not fixed during the run. Frontier labs monitor validation loss per domain and adjust the mix during the run. The DeepSeek-V3 paper mentions this kind of mid-run adjustment.
+The mix is not fixed during the run. Frontier labs monitor validation loss per domain and adjust the mix during the run. (DeepSeek-V3's report does not describe mid-run mix changes.)
 
 A common tool for this is the **DoReMi** approach (Xie et al., 2023) [\[9\]](../appendix/b-references.md#9-doremi), which uses a small proxy model to find the optimal data mix. The mix is then used for the big run.
 
@@ -299,7 +299,7 @@ The two main families:
 
 **Unigram.** Starts with a large vocabulary and prunes to a target size. Used by SentencePiece, often for multilingual models. Vocabulary size typically 32K–256K.
 
-DeepSeek-V3 uses a BPE tokenizer with a vocabulary of 128K, optimized for English and Chinese. Qwen3 uses a similar BPE tokenizer. Llama-3 uses a BPE tokenizer with 128K tokens, with special tokens for function calling and code.
+DeepSeek-V3 uses a byte-level BPE tokenizer with a vocabulary of 128K, tuned for "multilingual compression efficiency". Qwen3 uses a similar BPE tokenizer. Llama-3 uses a BPE tokenizer with 128K tokens, with special tokens for function calling and code.
 
 The tokenizer is trained on a representative sample of the training corpus. A bad tokenizer choice is a problem that cannot be fixed later — you cannot easily re-tokenize a model. Chapter 4 covers tokenization in detail.
 
@@ -356,10 +356,10 @@ A run that takes 60 days at the training stage might take 2–4 weeks at the dat
 Concrete numbers, where the labs have published them:
 
 **DeepSeek-V3 [\[1\]](../appendix/b-references.md#1-deepseek-v3):**
-- 14.8T training tokens.
-- Data mix: heavily English and Chinese, with code, math, and multilingual.
-- Custom dedup pipeline, custom quality filtering.
-- PDF extraction for academic content.
+- 14.8T training tokens ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#data-and-tokenizer)).
+- Data mix: more math and code than DeepSeek-V2, and multilingual coverage beyond English and Chinese. No ratios published.
+- Redundancy minimized; dedup and filtering methods not published.
+- Document packing without cross-sample masking; fill-in-the-middle on 10% of documents.
 
 **Llama-3 [\[5\]](../appendix/b-references.md#5-llama-3):**
 - 15.6T training tokens (for the 8B model, which was trained on more than Llama-2's 1.8T).

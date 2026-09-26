@@ -84,3 +84,54 @@ The text as first published is tagged `v1.0` in the repository, so every "the bo
 - **The source says:** "the bias term is only used for routing. The gating value, which will be multiplied with the FFN output, is still derived from the original affinity score." Gating weights are the sigmoid affinities of the selected experts, normalized over them. V3 also keeps a complementary sequence-wise balance loss with weight 0.0001 ([fact sheet](fact-sheets/deepseek-v3.md#architecture)).
 - **Where:** Chapter 10 §10.4.2 (code and text) and §10.6.
 - **Fixed in:** v1.0.1
+
+### E-020 — A block quote the DeepSeek-V3 report does not contain
+
+- **The book said:** Chapter 7 block-quoted the V3 report: *"… with a total of 900 GB/s NVLink bandwidth per GPU. The 256 nodes are connected via InfiniBand, with each GPU having a 400 Gb/s NIC,"* and called it "the entire physical description of the cluster in the paper".
+- **The source says:** no such sentence. §3.1 says only that each node's 8 GPUs are connected by NVLink and NVSwitch, and nodes by InfiniBand. The report's bandwidth figures, in §3.2.2, are **NVLink 160 GB/s and InfiniBand 50 GB/s**, about 3.2×. 900 GB/s is the H100's figure, not the H800's ([fact sheet](fact-sheets/deepseek-v3.md#cluster-and-interconnect)).
+- **Where:** Chapter 7 §7.2.
+- **Fixed in:** v1.0.1
+
+### E-021 — DeepSeek-V3's FP8 formats, and "unsigned" FP8
+
+- **The book said:** V3 used E4M3 for the forward pass and weight gradients and **E5M2 for activation gradients**, with a per-matmul table said to come from "the report's appendix". It said the master copy of weights was BF16 and the moments FP32. Chapter 8 said FP8 formats "are unsigned (no sign bit)".
+- **The source says:** "we adopt the E4M3 format on all tensors for higher precision", explicitly instead of the E4M3/E5M2 hybrid; the fine-grained 1×128 / 128×128 scaling is what makes that feasible. Master weights and gradients are FP32 and the AdamW moments BF16 (§3.3.2–3.3.3). E4M3 and E5M2 both have a sign bit; Chapter 10 itself said so ([fact sheet](fact-sheets/deepseek-v3.md#precision)).
+- **Where:** Chapter 1 §1.6; Chapter 5 §5.14.1; Chapter 8 §8.9, §8.15 and takeaway 4; Chapter 10 §10.8.1, §10.8.3, §10.13 and takeaway 3; Exercise 8.8 and its solution; Solution 10.1.
+- **Fixed in:** v1.0.1
+- **If you worked this before v1.0.1:** Exercise 8.8 part 1 used to ask "why two different ones?" and the answer explained the hybrid. V3 uses one. The better question, now asked, is why fine-grained scaling lets one format do both jobs.
+
+### E-022 — FP32 optimizer state is "non-negotiable"
+
+- **The book said:** "Optimizer state in FP32 … This is non-negotiable." Solution 8.4 gave V3's high-precision components as "the optimizer state and the master weights. Already FP32".
+- **The source says:** V3 stored AdamW's first and second moments in **BF16** "without incurring observable performance degradation", keeping only master weights and gradients in FP32 (§3.3.3) ([fact sheet](fact-sheets/deepseek-v3.md#precision)).
+- **Where:** Chapter 8 §8.7; Solution 8.4; Solution 21.1, whose V3 checkpoint size assumed FP32 moments.
+- **Fixed in:** v1.0.1
+- **If you worked this before v1.0.1:** Solution 21.1 part 3 still gives 8 TB under the exercise's 12 B/param recipe, and now adds V3's actual **5.4 TB (54 s)** at 8 B/param.
+
+### E-023 — DeepSeek-V3's schedule, batch ramp and "spike handling"
+
+- **The book said:** the schedule was warmup then "cosine decay to 10% of peak over the remainder of training"; the batch ramped "from ~2M tokens to ~19M tokens" (or 2,304 to 14,400 sequences) "in the first 1.3% of training"; there were "roughly 18,000 steps at global batch 8,192"; ε was 1e-8; and "DeepSeek-V3 uses this pattern: skip a window of ~200 batches after a spike, reduce the LR by 50%".
+- **The source says:** the LR is held **constant** at 2.2×10⁻⁴ until 10T tokens, then decays by cosine to 2.2×10⁻⁵ over 4.3T, then steps down over the last 500B. The batch ramps from **3,072 to 15,360** sequences over the first **469B** tokens (~3%). That makes ~235K steps (our arithmetic). The report gives no ε and no spike policy; it reports no irrecoverable spikes and no rollbacks (§1, §4.2) ([fact sheet](fact-sheets/deepseek-v3.md#optimizer-and-schedule)).
+- **Where:** Chapter 8 §8.13, §8.14, §8.15; Chapter 10 §10.9.
+- **Fixed in:** v1.0.1
+
+### E-024 — DeepSeek-V3's data, tokenizer, and training dynamics: quotations and figures not in the report
+
+- **The book said:** Chapter 10 quoted the V3 report five times on its data ("common crawl, code, math, multilingual", "code-related math", "high-quality data", "lessons learned", "based on validation loss curves on a held-out set"). It gave a mix of "approximately 60% English, 30% Chinese, 10% other", described the tokenizer as "bilingual rather than multilingual", with a special-token list "paraphrased from the released config", and described the main run's loss curve (an early "bump"), an MTBF of "several hours", and the team's explanation of the run's stability.
+- **The source says:** none of the five quotations appears in the report, and neither do the mix, the loss-curve description, the MTBF or the explanation. The report says the corpus expands multilingual coverage **beyond** English and Chinese, gives no ratios, and publishes no main-run loss curve. The special tokens in the released file are different; the chapter now shows the file itself ([fact sheet](fact-sheets/deepseek-v3.md#data-and-tokenizer)).
+- **Where:** Chapter 10 §10.1, §10.2, §10.3, §10.10 and §10.14; Chapter 3 §3.2, §3.3 and §3.5, which repeated the mix and described a V3 PDF pipeline, quality classifier, dedup threshold and mid-run mix changes that the report also does not mention.
+- **Fixed in:** v1.0.1
+
+### E-025 — DeepSeek-V3's cost and wall-clock
+
+- **The book said:** the $5.576M covered "the pre-training of V3 … for 2,788K GPU-hours" and "excludes post-training"; the run took "about 2 months … including all failures"; 2,788K GPU-hours implied 50–60% utilization. Chapter 7 priced it at "$1.50/H800-hour". Chapter 10 described Llama-3.1-405B's compute as "~16,000 H100-hours × 30M H100-hours".
+- **The source says:** 2,788K is the **full** training: 2,664K pre-training, 119K context extension and **5K post-training**, at an assumed **$2** per GPU-hour. The "less than two months" refers to pre-training, whose GPU-hours match its stated rate of 180K per trillion tokens exactly (Table 1, §1). Llama 3's report gives 3.8×10²⁵ FLOPs on up to 16K H100s and no GPU-hour cost ([fact sheet](fact-sheets/deepseek-v3.md#context-extension-post-training-and-cost)).
+- **Where:** Chapter 7 §7.15; Chapter 10 §10.1, §10.10 and §10.11; Solutions 10.1 and 10.8.
+- **Fixed in:** v1.0.1
+
+### E-026 — DeepSeek-V3's post-training
+
+- **The book said:** "~2M" SFT examples; a reward model on "a smaller variant of V3"; "RLHF (PPO)"; and "Distillation into DeepSeek-R1. The V3 reasoning capabilities are distilled into the DeepSeek-R1 series." Chapter 10 also said later frontier runs from "Llama-3.1 onward" adopted V3's FP8 recipe, and that V3's bias balancer is "now used in Qwen3".
+- **The source says:** **1.5M** SFT instances; a model-based reward model trained from the V3 **SFT checkpoints**, alongside rule-based rewards; RL with **GRPO**; and the distillation runs the other way, **from R1 into V3** (§5.1, §5.2, §5.4.1). Llama-3.1 predates V3 and trained in BF16. Qwen3 uses a global-batch balancing loss, not V3's bias ([fact sheet](fact-sheets/deepseek-v3.md#context-extension-post-training-and-cost)).
+- **Where:** Chapter 10 §10.12 and §10.13.
+- **Fixed in:** v1.0.1

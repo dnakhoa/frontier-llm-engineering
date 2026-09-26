@@ -215,7 +215,7 @@ Precision is where the recent frontier has moved:
 
 - **2018–2022**: FP32 training, then FP16 mixed-precision (FP16 weights, FP32 master copy, FP32 optimizer state).
 - **2022–2023**: BF16 mixed-precision. BF16 has the same dynamic range as FP32 but only 8 bits of mantissa; for transformers, the loss of mantissa is usually fine and the lack of overflow risk is a big win.
-- **2024–2025**: FP8 mixed-precision. The dominant format is E4M3 for forward and weight gradients, E5M2 for activation gradients (because activation gradients have a wider dynamic range). The DeepSeek team was one of the first to publish an FP8-at-scale run.
+- **2024–2025**: FP8 mixed-precision. The dominant format is E4M3 for forward and weight gradients, E5M2 for activation gradients (because activation gradients have a wider dynamic range). The DeepSeek team was one of the first to publish an FP8-at-scale run, and it broke with the hybrid: V3 used E4M3 on all tensors, relying on fine-grained scaling ([fact sheet](../appendix/fact-sheets/deepseek-v3.md#precision)).
 
 Memory cost per parameter under BF16 + AdamW, for a 70B model:
 - Weights in BF16: 70B × 2 = 140 GB
